@@ -18,7 +18,7 @@ for (let i = 0; i < WORDLISTS["english"].length; i++) {
                     <td>${i.toString(2)}</td>
                     <td>${i.toString(8)}</td>
                     <td>0x${i.toString(16)}</td>
-                    <td><table><td>${calculateSteelPattern(i, 0)}</td><td>${calculateSteelPattern(i, 1)}</td><td>${calculateSteelPattern(i, 2)}</td><td>${calculateSteelPattern(i, 3)}</td></table></td>
+                    <td><table><td style="background-color: #e29f51;">${calculateSteelPattern(i, 0)}</td><td style="background-color: #ffb55a;">${calculateSteelPattern(i, 1)}</td><td style="background-color: #e29f51;">${calculateSteelPattern(i, 2)}</td><td style="background-color: #ffb55a;">${calculateSteelPattern(i, 3)}</td></table></td>
                   </tr>
                 </tbody>`
 }
