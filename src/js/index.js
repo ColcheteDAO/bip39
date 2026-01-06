@@ -42,6 +42,7 @@
     DOM.entropyWordCount = DOM.entropyContainer.find(".word-count");
     DOM.entropyBinary = DOM.entropyContainer.find(".binary");
     DOM.entropyWordIndexes = DOM.entropyContainer.find(".word-indexes");
+    DOM.entropyWordIndexesBin = DOM.entropyContainer.find(".word-indexes-bin");
     DOM.entropyChecksum = DOM.entropyContainer.find(".checksum");
     DOM.entropyMnemonicLength = DOM.entropyContainer.find(".mnemonic-length");
     DOM.pbkdf2Rounds = DOM.entropyContainer.find(".pbkdf2-rounds");
@@ -2226,14 +2227,18 @@
         var phrase = DOM.phrase.val();
         var words = phraseToWordArray(phrase);
         var wordIndexes = [];
+        var wordIndexesBin = [];
         var language = getLanguage();
         for (var i=0; i<words.length; i++) {
             var word = words[i];
             var wordIndex = WORDLISTS[language].indexOf(word);
             wordIndexes.push(wordIndex);
+            wordIndexesBin.push(wordIndex.toString(2))
         }
         var wordIndexesStr = wordIndexes.join(", ");
+        var wordIndexesBinStr = wordIndexesBin.join(", ");
         DOM.entropyWordIndexes.text(wordIndexesStr);
+        DOM.entropyWordIndexesBin.text(wordIndexesBinStr);
     }
 
     function showChecksum() {
