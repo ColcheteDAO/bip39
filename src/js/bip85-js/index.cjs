@@ -1,7 +1,7 @@
 "use strict";
 const bip32 = require("bip32");
 const crypto = require("crypto");
-const rs58 = require("ripple-bs58");
+
 
 
 var __defProp = Object.defineProperty;
@@ -790,8 +790,10 @@ function basexBase (ALPHABET) {
     decode: decode
   }
 }
-var ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
-const bs58 = basexBase(ALPHABET)
+var ALPHABETbs58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+var ALPHABETrs58 = 'rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz'
+const bs58 = basexBase(ALPHABETbs58)
+const rs58 = basexBase(ALPHABETrs58)
 
 function bip39Salt(password) {
     return 'mnemonic' + (password || '');
