@@ -1,6 +1,5 @@
 "use strict";
 const bip32 = require("bip32");
-const crypto = require("crypto");
 
 
 
@@ -899,10 +898,7 @@ function wifEncode (version, privateKey, compressed) {
 
 
 function hmacsha512(message) {
-  return crypto
-    .createHmac("sha512", "bip-entropy-from-k")
-    .update(message)
-    .digest();
+  return Buffer.from(hmac(sha512_1Sha512, "bip-entropy-from-k",message))
 }
 
 function bip32XPRVToEntropy(path, xprvString) {
