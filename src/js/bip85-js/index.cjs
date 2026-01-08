@@ -8,7 +8,37 @@ const rs58 = require("ripple-bs58");
 
 var bs58check = require('bs58check')
 
-function decodeRaw (buffer, version) {
+function bs58checkEncode (payload) {
+    var checksum = checksumFn(payload)
+
+    return base58.encode(Buffer.concat([
+      payload,
+      checksum
+    ], payload.length + 4))
+  }
+
+  function bs58checkDecodeRaw (buffer) {
+    var payload = buffer.slice(0, -4)
+    var checksum = buffer.slice(-4)
+    var newChecksum = checksumFn(payload)
+
+    if (checksum[0] ^ newChecksum[0] |
+        checksum[1] ^ newChecksum[1] |
+        checksum[2] ^ newChecksum[2] |
+        checksum[3] ^ newChecksum[3]) return
+
+    return payload
+  }
+
+
+  function bs58checkDecode (string) {
+    var buffer = base58.decode(string)
+    var payload = bs58checkDecodeRaw(buffer, checksumFn)
+    if (!payload) throw new Error('Invalid checksum')
+    return payload
+  }
+
+function wifDecodeRaw (buffer, version) {
   // check version only if defined
   if (version !== undefined && buffer[0] !== version) throw new Error('Invalid network version')
 
@@ -48,11 +78,11 @@ function wifEncodeRaw (version, privateKey, compressed) {
 }
 
 function wifDecode (string, version) {
-  return decodeRaw(bs58check.decode(string), version)
+  return wifDecodeRaw(bs58checkDecode(string), version)
 }
 
 function wifEncode (version, privateKey, compressed) {
-  if (typeof version === 'number') return bs58check.encode(wifEncodeRaw(version, privateKey, compressed))
+  if (typeof version === 'number') return bs58checkEncode(wifEncodeRaw(version, privateKey, compressed))
 
   return bs58check.encode(
     wifEncodeRaw(
