@@ -494,8 +494,6 @@ var sha512_1Sha512 = /* @__PURE__ */ sha512_1CreateHasher(() => new SHA512());
 
 const pbkdf2_1 = require("@noble/hashes/pbkdf2");
 
-var _Buffer =  require('buffer')
-
 function basexBase (ALPHABET) {
   if (ALPHABET.length >= 255) { throw new TypeError('Alphabet too long') }
   var BASE_MAP = new Uint8Array(256)
@@ -513,8 +511,8 @@ function basexBase (ALPHABET) {
   var FACTOR = Math.log(BASE) / Math.log(256) // log(BASE) / log(256), rounded up
   var iFACTOR = Math.log(256) / Math.log(BASE) // log(256) / log(BASE), rounded up
   function encode (source) {
-    if (Array.isArray(source) || source instanceof Uint8Array) { source = _Buffer.from(source) }
-    if (!_Buffer.isBuffer(source)) { throw new TypeError('Expected Buffer') }
+    if (Array.isArray(source) || source instanceof Uint8Array) { source = Buffer.from(source) }
+    if (!Buffer.isBuffer(source)) { throw new TypeError('Expected Buffer') }
     if (source.length === 0) { return '' }
         // Skip & count leading zeroes.
     var zeroes = 0
