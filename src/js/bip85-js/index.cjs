@@ -488,11 +488,123 @@ var SHA512 = class extends HashMD {
 };
 var sha512_1Sha512 = /* @__PURE__ */ sha512_1CreateHasher(() => new SHA512());
 
+const { hmac } = require("./node_modules/@noble/hashes/hmac.js");
 
+function pbkdf2_1Clean(...arrays) {
+    for (let i = 0; i < arrays.length; i++) {
+        arrays[i].fill(0);
+    }
+}
 
+function pbkdf2_1Pbkdf2Output(PRF, PRFSalt, DK, prfW, u) {
+    PRF.destroy();
+    PRFSalt.destroy();
+    if (prfW)
+        prfW.destroy();
+    pbkdf2_1Clean(u);
+    return DK;
+}
 
+const pbkdf2_1NextTick = async () => { };
 
-const pbkdf2_1 = require("@noble/hashes/pbkdf2");
+async function pbkdf2_1AsyncLoop(iters, tick, cb) {
+    let ts = Date.now();
+    for (let i = 0; i < iters; i++) {
+        cb(i);
+        // Date.now() is not monotonic, so in case if clock goes backwards we return return control too
+        const diff = Date.now() - ts;
+        if (diff >= 0 && diff < tick)
+            continue;
+        await pbkdf2_1NextTick();
+        ts += diff;
+    }
+}
+
+function pbkdf2_1IsBytes(a) {
+    return a instanceof Uint8Array || (ArrayBuffer.isView(a) && a.constructor.name === 'Uint8Array');
+}
+
+function pbkdf2_1Abytes(b, ...lengths) {
+    if (!pbkdf2_1IsBytes(b))
+        throw new Error('Uint8Array expected');
+    if (lengths.length > 0 && !lengths.includes(b.length))
+        throw new Error('Uint8Array expected of length ' + lengths + ', got length=' + b.length);
+}
+
+function pbkdf2_1CheckOpts(defaults, opts) {
+    if (opts !== undefined && {}.toString.call(opts) !== '[object Object]')
+        throw new Error('options should be object or undefined');
+    const merged = Object.assign(defaults, opts);
+    return merged;
+}
+
+function pbkdf2_1KdfInputToBytes(data) {
+    if (typeof data === 'string')
+        data = utf8ToBytes(data);
+    pbkdf2_1Abytes(data);
+    return data;
+}
+
+function pbkdf2_1Anumber(n) {
+    if (!Number.isSafeInteger(n) || n < 0)
+        throw new Error('positive integer expected, got ' + n);
+}
+
+function pbkdf2_1Ahash(h) {
+    if (typeof h !== 'function' || typeof h.create !== 'function')
+        throw new Error('Hash should be wrapped by utils.createHasher');
+    pbkdf2_1Anumber(h.outputLen);
+    pbkdf2_1Anumber(h.blockLen);
+}
+
+function pbkdf2_1Pbkdf2Init(hash, _password, _salt, _opts) {
+    pbkdf2_1Ahash(hash);
+    const opts = pbkdf2_1CheckOpts({ dkLen: 32, asyncTick: 10 }, _opts);
+    const { c, dkLen, asyncTick } = opts;
+    pbkdf2_1Anumber(c);
+    pbkdf2_1Anumber(dkLen);
+    pbkdf2_1Anumber(asyncTick);
+    if (c < 1)
+        throw new Error('iterations (c) should be >= 1');
+    const password = pbkdf2_1KdfInputToBytes(_password);
+    const salt = pbkdf2_1KdfInputToBytes(_salt);
+    // DK = PBKDF2(PRF, Password, Salt, c, dkLen);
+    const DK = new Uint8Array(dkLen);
+    // U1 = PRF(Password, Salt + INT_32_BE(i))
+    const PRF = hmac.create(hash, password);
+    const PRFSalt = PRF._cloneInto().update(salt);
+    return { c, dkLen, asyncTick, DK, PRF, PRFSalt };
+}
+
+function pbkdf2_1CreateView(arr) {
+    return new DataView(arr.buffer, arr.byteOffset, arr.byteLength);
+}
+
+async function pbkdf2_1Pbkdf2Async(hash, password, salt, opts) {
+    const { c, dkLen, asyncTick, DK, PRF, PRFSalt } = pbkdf2_1Pbkdf2Init(hash, password, salt, opts);
+    let prfW; // Working copy
+    const arr = new Uint8Array(4);
+    const view = pbkdf2_1CreateView(arr);
+    const u = new Uint8Array(PRF.outputLen);
+    // DK = T1 + T2 + ⋯ + Tdklen/hlen
+    for (let ti = 1, pos = 0; pos < dkLen; ti++, pos += PRF.outputLen) {
+        // Ti = F(Password, Salt, c, i)
+        const Ti = DK.subarray(pos, pos + PRF.outputLen);
+        view.setInt32(0, ti, false);
+        // F(Password, Salt, c, i) = U1 ^ U2 ^ ⋯ ^ Uc
+        // U1 = PRF(Password, Salt + INT_32_BE(i))
+        (prfW = PRFSalt._cloneInto(prfW)).update(arr).digestInto(u);
+        Ti.set(u.subarray(0, Ti.length));
+        await pbkdf2_1AsyncLoop(c - 1, asyncTick, () => {
+            // Uc = PRF(Password, Uc−1)
+            PRF._cloneInto(prfW).update(u).digestInto(u);
+            for (let i = 0; i < Ti.length; i++)
+                Ti[i] ^= u[i];
+        });
+    }
+    return pbkdf2_1Pbkdf2Output(PRF, PRFSalt, DK, prfW, u);
+}
+
 
 function basexBase (ALPHABET) {
   if (ALPHABET.length >= 255) { throw new TypeError('Alphabet too long') }
@@ -622,7 +734,7 @@ function bip39Normalize(str) {
 function bip39MnemonicToSeed(mnemonic, password) {
     const mnemonicBuffer = Uint8Array.from(Buffer.from(bip39Normalize(mnemonic), 'utf8'));
     const saltBuffer = Uint8Array.from(Buffer.from(bip39Salt(bip39Normalize(password)), 'utf8'));
-    return pbkdf2_1.pbkdf2Async(sha512_1Sha512, mnemonicBuffer, saltBuffer, {
+    return pbkdf2_1Pbkdf2Async(sha512_1Sha512, mnemonicBuffer, saltBuffer, {
         c: 2048,
         dkLen: 64,
     }).then((res) => Buffer.from(res));
