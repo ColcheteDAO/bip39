@@ -494,7 +494,7 @@ var sha512_1Sha512 = /* @__PURE__ */ sha512_1CreateHasher(() => new SHA512());
 
 const pbkdf2_1 = require("@noble/hashes/pbkdf2");
 
-var _Buffer = require('safe-buffer').Buffer
+var _Buffer =  require('buffer')
 
 function basexBase (ALPHABET) {
   if (ALPHABET.length >= 255) { throw new TypeError('Alphabet too long') }
