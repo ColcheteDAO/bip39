@@ -1,14 +1,140 @@
 "use strict";
 const typeforce = require('typeforce');
 const createHmac = require('create-hmac');
-const ecc = require('tiny-secp256k1');
+const BN = require('bn.js')
+const EC = require('elliptic').ec
+const secp256k1 = new EC('secp256k1')
+var sha = require('sha.js')
+var createHash = require('create-hash')
 
-function createHash (alg) {
+const n = secp256k1.curve.n
+const G = secp256k1.curve.g
+
+
+function eccGetEncoded (P, compressed) { return Buffer.from(P._encode(compressed)) }
+
+function eccAssumeCompression (value, pubkey) {
+  if (value === undefined && pubkey !== undefined) return __isPointCompressed(pubkey)
+  if (value === undefined) return true
+  return value
+}
+
+function eccPointFromScalar (d, __compressed) {
+  if (!eccIsPrivate(d)) throw new TypeError(THROW_BAD_PRIVATE)
+
+  const dd = eccFromBuffer(d)
+  const pp = G.mul(dd)
+  if (pp.isInfinity()) return null
+
+  const compressed = eccAssumeCompression(__compressed)
+  return eccGetEncoded(pp, compressed)
+}
+
+function eccFromBuffer (d) { return new BN(d) }
+function eccToBuffer (d) { return d.toArrayLike(Buffer, 'be', 32) }
+
+function eccIsOrderScalar (x) {
+  if (!eccIsScalar(x)) return false
+  return EC_GROUP_ORDER.compare(x) > 0 // < G
+}
+
+function eccPrivateAdd (d, tweak) {
+  if (!eccIsPrivate(d)) throw new TypeError(THROW_BAD_PRIVATE)
+  if (!eccIsOrderScalar(tweak)) throw new TypeError(THROW_BAD_TWEAK)
+
+  const dd = eccFromBuffer(d)
+  const tt = eccFromBuffer(tweak)
+  const dt = eccToBuffer(dd.add(tt).umod(n))
+  if (!eccIsPrivate(dt)) return null
+
+  return dt
+}
+
+const ZERO32 = Buffer.alloc(32, 0)
+const EC_GROUP_ORDER = Buffer.from('fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141', 'hex')
+
+function eccIsScalar (x) {
+  return (x instanceof Uint8Array) && x.length === 32
+}
+
+function eccIsPrivate (x) {
+  if (!eccIsScalar(x)) return false
+  return ZERO32.compare(x) < 0 && // > 0
+    EC_GROUP_ORDER.compare(x) > 0 // < G
+}
+
+function ecc__sign (hash, x, addData) {
+  if (!eccIsScalar(hash)) throw new TypeError(THROW_BAD_HASH)
+  if (!eccIsPrivate(x)) throw new TypeError(THROW_BAD_PRIVATE)
+  if (addData !== undefined && !eccIsScalar(addData)) throw new TypeError(THROW_BAD_EXTRA_DATA)
+
+  const d = eccFromBuffer(x)
+  const e = eccFromBuffer(hash)
+
+  let r, s
+  const checkSig = function (k) {
+    const kI = eccFromBuffer(k)
+    const Q = G.mul(kI)
+
+    if (Q.isInfinity()) return false
+
+    r = Q.x.umod(n)
+    if (r.isZero() === 0) return false
+
+    s = kI
+      .invm(n)
+      .mul(e.add(d.mul(r)))
+      .umod(n)
+    if (s.isZero() === 0) return false
+
+    return true
+  }
+
+  deterministicGenerateK(hash, x, checkSig, isPrivate, addData)
+
+  // enforce low S values, see bip62: 'low s values in signatures'
+  if (s.cmp(nDiv2) > 0) {
+    s = n.sub(s)
+  }
+
+  const buffer = Buffer.allocUnsafe(64)
+  eccToBuffer(r).copy(buffer, 0)
+  eccToBuffer(s).copy(buffer, 32)
+  return buffer
+}
+
+function eccSign (hash, x) {
+  return ecc__sign(hash, x)
+}
+
+var inherits = require('inherits')
+var MD5 = require('md5.js')
+var RIPEMD160 = require('ripemd160')
+var sha = require('sha.js')
+var Base = require('cipher-base')
+
+function createHashHash (hash) {
+  Base.call(this, 'digest')
+
+  this._hash = hash
+}
+
+inherits(createHashHash, Base)
+
+createHashHash.prototype._update = function (data) {
+  this._hash.update(data)
+}
+
+createHashHash.prototype._final = function () {
+  return this._hash.digest()
+}
+
+module.exports = function createHash (alg) {
   alg = alg.toLowerCase()
   if (alg === 'md5') return new MD5()
   if (alg === 'rmd160' || alg === 'ripemd160') return new RIPEMD160()
 
-  return new Hash(sha(alg))
+  return new createHashHash(sha(alg))
 }
 
 const HIGHEST_BIT = 0x80000000;
@@ -72,7 +198,7 @@ class BIP32 {
     }
     get publicKey() {
         if (this.__Q === undefined)
-            this.__Q = ecc.pointFromScalar(this.__D, true);
+            this.__Q = eccPointFromScalar(this.__D, true);
         return this.__Q;
     }
     get privateKey() {
@@ -155,13 +281,13 @@ class BIP32 {
         const IL = I.slice(0, 32);
         const IR = I.slice(32);
         // if parse256(IL) >= n, proceed with the next value for i
-        if (!ecc.isPrivate(IL))
+        if (!eccIsPrivate(IL))
             return this.derive(index + 1);
         // Private parent key -> private child key
         let hd;
         if (!this.isNeutered()) {
             // ki = parse256(IL) + kpar (mod n)
-            const ki = ecc.privateAdd(this.privateKey, IL);
+            const ki = eccPrivateAdd(this.privateKey, IL);
             // In case ki == 0, proceed with the next value for i
             if (ki == null)
                 return this.derive(index + 1);
@@ -210,10 +336,10 @@ class BIP32 {
         if (lowR === undefined)
             lowR = this.lowR;
         if (lowR === false) {
-            return ecc.sign(hash, this.privateKey);
+            return eccSign(hash, this.privateKey);
         }
         else {
-            let sig = ecc.sign(hash, this.privateKey);
+            let sig = eccSign(hash, this.privateKey);
             const extraData = Buffer.alloc(32, 0);
             let counter = 0;
             // if first try is lowR, skip the loop
@@ -237,7 +363,7 @@ function bip32FromPrivateKeyLocal(privateKey, chainCode, network, depth, index, 
         chainCode: UINT256_TYPE,
     }, { privateKey, chainCode });
     network = network || BITCOIN;
-    if (!ecc.isPrivate(privateKey))
+    if (!eccIsPrivate(privateKey))
         throw new TypeError('Private key not in range [1, n)');
     return new BIP32(privateKey, undefined, chainCode, network, depth, index, parentFingerprint);
 }
