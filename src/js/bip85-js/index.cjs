@@ -1,12 +1,12 @@
 "use strict";
-const bs58 = require("bs58");
 const bip39 = require("bip39");
 const bip32 = require("bip32");
 const crypto = require("crypto");
 const rs58 = require("ripple-bs58");
 
-
-var bs58check = require('bs58check')
+var basex = require('base-x')
+var ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+const bs58 = basex(ALPHABET)
 
 function bs58checkEncode (payload) {
     var checksum = checksumFn(payload)
@@ -84,7 +84,7 @@ function wifDecode (string, version) {
 function wifEncode (version, privateKey, compressed) {
   if (typeof version === 'number') return bs58checkEncode(wifEncodeRaw(version, privateKey, compressed))
 
-  return bs58check.encode(
+  return bs58checkEncode(
     wifEncodeRaw(
       version.version,
       version.privateKey,
