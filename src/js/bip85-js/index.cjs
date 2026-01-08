@@ -2,7 +2,14 @@
 const typeforce = require('typeforce');
 const createHmac = require('create-hmac');
 const ecc = require('tiny-secp256k1');
-const createHash = require('create-hash');
+
+function createHash (alg) {
+  alg = alg.toLowerCase()
+  if (alg === 'md5') return new MD5()
+  if (alg === 'rmd160' || alg === 'ripemd160') return new RIPEMD160()
+
+  return new Hash(sha(alg))
+}
 
 const HIGHEST_BIT = 0x80000000;
 
