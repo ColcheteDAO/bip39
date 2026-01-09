@@ -9,7 +9,13 @@ const BN = require('bn.js')
 var HmacDRBG = require('hmac-drbg');
 var utils = require('./node_modules/elliptic/lib/elliptic/utils');
 var hash = require('hash.js');
-var curve = require('./node_modules/elliptic/lib/elliptic/curve');
+var curve = exports;
+
+curve.base = require('./node_modules/elliptic/lib/elliptic/curve/base');
+curve.short = require('./node_modules/elliptic/lib/elliptic/curve/short');
+curve.mont = require('./node_modules/elliptic/lib/elliptic/curve/mont');
+curve.edwards = require('./node_modules/elliptic/lib/elliptic/curve/edwards')
+
 
 var curves = exports;
 
