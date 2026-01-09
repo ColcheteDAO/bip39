@@ -9,7 +9,7 @@ const BN = require('bn.js')
 const EC = require('elliptic').ec
 const secp256k1 = new EC('secp256k1')
 var inherits = require('inherits');
-var toBuffer = require('to-buffer');
+
 
 // prototype class for hash functions
 function shaHashHash(blockSize, finalSize) {
@@ -21,7 +21,7 @@ function shaHashHash(blockSize, finalSize) {
 
 shaHashHash.prototype.update = function (data, enc) {
 	/* eslint no-param-reassign: 0 */
-	data = toBuffer(data, enc || 'utf8');
+	data = Buffer.from(data, enc || 'utf8');
 
 	var block = this._block;
 	var blockSize = this._blockSize;
