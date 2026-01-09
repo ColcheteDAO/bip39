@@ -1,11 +1,13 @@
 "use strict";
+var RIPEMD160 = require('ripemd160')
+const sha256 = require('./node_modules/sha.js/sha256')
+var MD5 = require('md5.js')
+var Base = require('cipher-base')
 const typeforce = require('typeforce');
 const createHmac = require('create-hmac');
 const BN = require('bn.js')
 const EC = require('elliptic').ec
 const secp256k1 = new EC('secp256k1')
-
-
 var inherits = require('inherits');
 var toBuffer = require('to-buffer');
 
@@ -96,7 +98,7 @@ var W = new Array(80);
 function sha(algorithm) {
 	var alg = algorithm.toLowerCase();
 
-	var Algorithm = module.exports[alg];
+	var Algorithm = eval(`${alg}`);
 	if (!Algorithm) {
 		throw new Error(alg + ' is not supported (we accept pull requests)');
 	}
@@ -288,11 +290,6 @@ function eccSign (hash, x) {
   return ecc__sign(hash, x)
 }
 
-var inherits = require('inherits')
-var MD5 = require('md5.js')
-var RIPEMD160 = require('ripemd160')
-var sha = require('sha.js')
-var Base = require('cipher-base')
 
 function createHashHash (hash) {
   Base.call(this, 'digest')
