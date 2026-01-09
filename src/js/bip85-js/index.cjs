@@ -8,8 +8,20 @@ const createHmac = require('create-hmac');
 const BN = require('bn.js')
 const EC = require('elliptic').ec
 const secp256k1 = new EC('secp256k1')
-var inherits = require('inherits');
 
+function inherits(ctor, superCtor) {
+    if (superCtor) {
+      ctor.super_ = superCtor
+      ctor.prototype = Object.create(superCtor.prototype, {
+        constructor: {
+          value: ctor,
+          enumerable: false,
+          writable: true,
+          configurable: true
+        }
+      })
+    }
+  };
 
 // prototype class for hash functions
 function shaHashHash(blockSize, finalSize) {
