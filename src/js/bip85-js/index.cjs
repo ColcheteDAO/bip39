@@ -5,15 +5,13 @@ var MD5 = require('md5.js')
 var Base = require('cipher-base')
 const typeforce = require('typeforce');
 const createHmac = require('create-hmac');
-const BN = require('bn.js')
+let BN = require('bn.js')
 var HmacDRBG = require('hmac-drbg');
 var utils = require('./node_modules/elliptic/lib/elliptic/utils');
 var hash = require('hash.js');
 var curve = exports;
 var assert = utils.assert;
-
 curve.base = require('./node_modules/elliptic/lib/elliptic/curve/base');
-curve.short = require('./node_modules/elliptic/lib/elliptic/curve/short');
 
 function inherits(ctor, superCtor) {
     if (superCtor) {
@@ -29,11 +27,11 @@ function inherits(ctor, superCtor) {
     }
   };
 
-var Base2 = curve.base;
-
+function theShort(){
+let Base = curve.base;
 
 function ShortCurve(conf) {
-  Base2.call(this, 'short', conf);
+  Base.call(this, 'short', conf);
 
   this.a = new BN(conf.a, 16).toRed(this.red);
   this.b = new BN(conf.b, 16).toRed(this.red);
@@ -47,8 +45,7 @@ function ShortCurve(conf) {
   this._endoWnafT1 = new Array(4);
   this._endoWnafT2 = new Array(4);
 }
-inherits(ShortCurve, Base2);
-// curve.short = ShortCurve;
+inherits(ShortCurve, Base);
 
 ShortCurve.prototype._getEndomorphism = function _getEndomorphism(conf) {
   // No efficient endomorphism
@@ -274,7 +271,7 @@ ShortCurve.prototype._endoWnafMulAdd =
     };
 
 function Point(curve, x, y, isRed) {
-  Base2.BasePoint.call(this, curve, 'affine');
+  Base.BasePoint.call(this, curve, 'affine');
   if (x === null && y === null) {
     this.x = null;
     this.y = null;
@@ -294,7 +291,7 @@ function Point(curve, x, y, isRed) {
     this.inf = false;
   }
 }
-inherits(Point, Base2.BasePoint);
+inherits(Point, Base.BasePoint);
 
 ShortCurve.prototype.point = function point(x, y, isRed) {
   return new Point(this, x, y, isRed);
@@ -513,7 +510,7 @@ Point.prototype.toJ = function toJ() {
 };
 
 function JPoint(curve, x, y, z) {
-  Base2.BasePoint.call(this, curve, 'jacobian');
+  Base.BasePoint.call(this, curve, 'jacobian');
   if (x === null && y === null && z === null) {
     this.x = this.curve.one;
     this.y = this.curve.one;
@@ -532,7 +529,7 @@ function JPoint(curve, x, y, z) {
 
   this.zOne = this.z === this.curve.one;
 }
-inherits(JPoint, Base2.BasePoint);
+inherits(JPoint, Base.BasePoint);
 
 ShortCurve.prototype.jpoint = function jpoint(x, y, z) {
   return new JPoint(this, x, y, z);
@@ -960,8 +957,12 @@ JPoint.prototype.inspect = function inspect() {
 JPoint.prototype.isInfinity = function isInfinity() {
   // XXX This code assumes that zero is always zero in red
   return this.z.cmpn(0) === 0;
-};
+}
 
+return ShortCurve;
+}
+
+curve.short = theShort();
 
 
 
@@ -1829,6 +1830,7 @@ if (typeof self === 'object') {
   }
 }
 
+var assert = utils.assert;
 
 function KeyPair(ec, options) {
   this.ec = ec;
