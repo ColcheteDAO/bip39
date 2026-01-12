@@ -362,9 +362,60 @@ function toBuffer(data, encoding) {
 	throw new TypeError('The "data" argument must be a string, an Array, a Buffer, a Uint8Array, or a DataView.');
 }
 
+// --- START OF COMPATIBLE POLYFILL ---
+// We define Transform as a FUNCTION (not a class) so .call(this) works
 
+// 1. EventEmitter Polyfill (Function Style)
+function EventEmitter() {
+  this._events = {};
+}
+EventEmitter.prototype.on = function(type, listener) {
+  const list = this._events[type] || (this._events[type] = []);
+  list.push(listener);
+  return this;
+};
+EventEmitter.prototype.emit = function(type, ...args) {
+  const list = this._events[type];
+  if (list) list.forEach(fn => fn.apply(this, args));
+};
+
+// 2. Transform Polyfill (Function Style)
+function Transform(options) {
+  // This allows the legacy code to run Transform.call(this) successfully
+  EventEmitter.call(this); 
+  
+  this._readableState = { objectMode: false, ended: false, destroyed: false };
+  this._writableState = { objectMode: false, ended: false, destroyed: false };
+}
+
+// 3. Setup Inheritance manually
+Transform.prototype = Object.create(EventEmitter.prototype);
+Transform.prototype.constructor = Transform;
+
+// 4. Add required methods
+Transform.prototype.push = function(chunk) {
+  this.emit('data', chunk);
+  return true;
+};
+Transform.prototype.write = function(chunk, encoding, cb) {
+  // Handle optional arguments
+  if (typeof encoding === 'function') { cb = encoding; encoding = 'utf8'; }
+  
+  // Mock the internal _transform call
+  if (this._transform) {
+    this._transform(chunk, encoding || 'utf8', (err, data) => {
+      if (data) this.push(data);
+      if (cb) cb(err);
+    });
+  }
+  return true;
+};
+Transform.prototype.end = function(chunk, encoding, cb) {
+  if (chunk) this.write(chunk, encoding, cb);
+  this.emit('end');
+};
+// --- END OF COMPATIBLE POLYFILL ---
 function fBase() {
-  var Transform = require('stream').Transform;
 
   function CipherBase(hashMode) {
     Transform.call(this);
