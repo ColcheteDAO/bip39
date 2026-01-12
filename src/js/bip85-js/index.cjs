@@ -4,7 +4,32 @@ const sha256 = require('./node_modules/sha.js/sha256')
 var MD5 = require('md5.js')
 var Base = require('cipher-base')
 var ERRORS = require('./node_modules/typeforce/errors')
-var NATIVE = require('./node_modules/typeforce/native')
+
+function fNATIVE(){
+var types = {
+  Array: function (value) { return value !== null && value !== undefined && value.constructor === Array },
+  Boolean: function (value) { return typeof value === 'boolean' },
+  Function: function (value) { return typeof value === 'function' },
+  Nil: function (value) { return value === undefined || value === null },
+  Number: function (value) { return typeof value === 'number' },
+  Object: function (value) { return typeof value === 'object' },
+  String: function (value) { return typeof value === 'string' },
+  '': function () { return true }
+}
+
+types.Null = types.Nil
+
+for (var typeName in types) {
+  types[typeName].toJSON = function (t) {
+    return t
+  }.bind(null, typeName)
+}
+return types
+}
+
+var NATIVE = fNATIVE()
+
+
 function fEXTRA()
 
 {
