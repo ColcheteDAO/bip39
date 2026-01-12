@@ -6,12 +6,42 @@ var Base = require('cipher-base')
 const typeforce = require('typeforce');
 const createHmac = require('create-hmac');
 let BN = require('bn.js')
+function toArray(msg, enc) {
+  if (Array.isArray(msg))
+    return msg.slice();
+  if (!msg)
+    return [];
+  var res = [];
+  if (typeof msg !== 'string') {
+    for (var i = 0; i < msg.length; i++)
+      res[i] = msg[i] | 0;
+    return res;
+  }
+  if (enc === 'hex') {
+    msg = msg.replace(/[^a-z0-9]+/ig, '');
+    if (msg.length % 2 !== 0)
+      msg = '0' + msg;
+    for (var i = 0; i < msg.length; i += 2)
+      res.push(parseInt(msg[i] + msg[i + 1], 16));
+  } else {
+    for (var i = 0; i < msg.length; i++) {
+      var c = msg.charCodeAt(i);
+      var hi = c >> 8;
+      var lo = c & 0xff;
+      if (hi)
+        res.push(hi, lo);
+      else
+        res.push(lo);
+    }
+  }
+  return res;
+}
+
 function minAssert(val, msg) {
   if (!val)
     throw new Error(msg || 'Assertion failed');
 }
 function HmacDRBG() {
-  var utils = require('minimalistic-crypto-utils');
 
   function HmacDRBG(options) {
     if (!(this instanceof HmacDRBG))
@@ -27,9 +57,9 @@ function HmacDRBG() {
     this.K = null;
     this.V = null;
 
-    var entropy = utils.toArray(options.entropy, options.entropyEnc || 'hex');
-    var nonce = utils.toArray(options.nonce, options.nonceEnc || 'hex');
-    var pers = utils.toArray(options.pers, options.persEnc || 'hex');
+    var entropy = toArray(options.entropy, options.entropyEnc || 'hex');
+    var nonce = toArray(options.nonce, options.nonceEnc || 'hex');
+    var pers = toArray(options.pers, options.persEnc || 'hex');
     minAssert(entropy.length >= (this.minEntropy / 8),
       'Not enough entropy. Minimum is: ' + this.minEntropy + ' bits');
     this._init(entropy, nonce, pers);
