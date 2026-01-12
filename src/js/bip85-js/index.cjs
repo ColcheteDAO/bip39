@@ -4,7 +4,6 @@ const sha256 = require('./node_modules/sha.js/sha256')
 var MD5 = require('md5.js')
 var Base = require('cipher-base')
 const typeforce = require('typeforce');
-
 var Buffer = require('safe-buffer').Buffer
 
 var SHA512_IV = /* @__PURE__ */ Uint32Array.from([
@@ -236,7 +235,6 @@ var SHA512 = class extends HashMD {
   }
 };
 
-function sha512(){
 
 var K = [
 	0x428a2f98,
@@ -403,16 +401,16 @@ var K = [
 
 var W = new Array(160);
 
-function Sha512() {
+function sha512() {
 	this.init();
 	this._w = W;
 
-	Hash.call(this, 128, 112);
+	shaHashHash.call(this, 128, 112);
 }
 
-inherits(Sha512, Hash);
+inherits(sha512, shaHashHash);
 
-Sha512.prototype.init = function () {
+sha512.prototype.init = function () {
 	this._ah = 0x6a09e667;
 	this._bh = 0xbb67ae85;
 	this._ch = 0x3c6ef372;
@@ -470,7 +468,7 @@ function getCarry(a, b) {
 	return (a >>> 0) < (b >>> 0) ? 1 : 0;
 }
 
-Sha512.prototype._update = function (M) {
+sha512.prototype._update = function (M) {
 	var w = this._w;
 
 	var ah = this._ah | 0;
@@ -593,7 +591,7 @@ Sha512.prototype._update = function (M) {
 	this._hh = (this._hh + hh + getCarry(this._hl, hl)) | 0;
 };
 
-Sha512.prototype._hash = function () {
+sha512.prototype._hash = function () {
 	var H = Buffer.allocUnsafe(64);
 
 	function writeInt64BE(h, l, offset) {
@@ -613,15 +611,12 @@ Sha512.prototype._hash = function () {
 	return H;
 };
 
-return Sha512;
-}
 
 function createHmac(alg, key) {
 
   var inherits = require('inherits')
   var Legacy = require('./node_modules/create-hmac/legacy')
   var Base = require('cipher-base')
-  var sha = require('sha.js')
   var md5 = MD5
 
   var ZEROS = Buffer.alloc(128)
