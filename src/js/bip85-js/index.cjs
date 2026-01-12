@@ -8,7 +8,11 @@ const createHmac = require('create-hmac');
 let BN = require('bn.js')
 var HmacDRBG = require('hmac-drbg');
 var utils = require('./node_modules/elliptic/lib/elliptic/utils');
-var hash = require('hash.js');
+let hashSha = require('./node_modules/hash.js/lib/hash/sha');
+let hash = exports
+hash.sha256 = hashSha.sha256;
+hash.sha384 = hashSha.sha384;
+hash.sha512 = hashSha.sha512;
 var curve = exports;
 var assert = utils.assert;
 
