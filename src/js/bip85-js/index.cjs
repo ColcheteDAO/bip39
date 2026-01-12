@@ -7,7 +7,92 @@ const typeforce = require('typeforce');
 const createHmac = require('create-hmac');
 let BN = require('bn.js')
 var HmacDRBG = require('hmac-drbg');
-var utils = require('./node_modules/elliptic/lib/elliptic/utils');
+var minAssert = require('minimalistic-assert');
+
+function getNAF(num, w, bits) {
+  var naf = new Array(Math.max(num.bitLength(), bits) + 1);
+  var i;
+  for (i = 0; i < naf.length; i += 1) {
+    naf[i] = 0;
+  }
+
+  var ws = 1 << (w + 1);
+  var k = num.clone();
+
+  for (i = 0; i < naf.length; i++) {
+    var z;
+    var mod = k.andln(ws - 1);
+    if (k.isOdd()) {
+      if (mod > (ws >> 1) - 1)
+        z = (ws >> 1) - mod;
+      else
+        z = mod;
+      k.isubn(z);
+    } else {
+      z = 0;
+    }
+
+    naf[i] = z;
+    k.iushrn(1);
+  }
+
+  return naf;
+}
+
+function getJSF(k1, k2) {
+  var jsf = [
+    [],
+    [],
+  ];
+
+  k1 = k1.clone();
+  k2 = k2.clone();
+  var d1 = 0;
+  var d2 = 0;
+  var m8;
+  while (k1.cmpn(-d1) > 0 || k2.cmpn(-d2) > 0) {
+    // First phase
+    var m14 = (k1.andln(3) + d1) & 3;
+    var m24 = (k2.andln(3) + d2) & 3;
+    if (m14 === 3)
+      m14 = -1;
+    if (m24 === 3)
+      m24 = -1;
+    var u1;
+    if ((m14 & 1) === 0) {
+      u1 = 0;
+    } else {
+      m8 = (k1.andln(7) + d1) & 7;
+      if ((m8 === 3 || m8 === 5) && m24 === 2)
+        u1 = -m14;
+      else
+        u1 = m14;
+    }
+    jsf[0].push(u1);
+
+    var u2;
+    if ((m24 & 1) === 0) {
+      u2 = 0;
+    } else {
+      m8 = (k2.andln(7) + d2) & 7;
+      if ((m8 === 3 || m8 === 5) && m14 === 2)
+        u2 = -m24;
+      else
+        u2 = m24;
+    }
+    jsf[1].push(u2);
+
+    // Second phase
+    if (2 * d1 === u1 + 1)
+      d1 = 1 - d1;
+    if (2 * d2 === u2 + 1)
+      d2 = 1 - d2;
+    k1.iushrn(1);
+    k2.iushrn(1);
+  }
+
+  return jsf;
+}
 
 function utilsHashToHex32(msg, endian) {
   var res = '';
@@ -70,12 +155,6 @@ SHA384.prototype._digest = function digest(enc) {
 };
 
 var curve = exports;
-var assert = utils.assert;
-
-var getNAF = utils.getNAF;
-var getJSF = utils.getJSF;
-var assert = utils.assert;
-
 function BaseCurve(type, conf) {
   this.type = type;
   this.p = new BN(conf.p, 16);
@@ -120,7 +199,7 @@ BaseCurve.prototype.validate = function validate() {
 };
 
 BaseCurve.prototype._fixedNafMul = function _fixedNafMul(p, k) {
-  assert(p.precomputed);
+  minAssert(p.precomputed);
   var doubles = p._getDoubles();
 
   var naf = getNAF(k, 1, this._bitLength);
@@ -177,7 +256,7 @@ BaseCurve.prototype._wnafMul = function _wnafMul(p, k) {
     if (i < 0)
       break;
     var z = naf[i];
-    assert(z !== 0);
+    minminAssert(z !== 0);
     if (p.type === 'affine') {
       // J +- P
       if (z > 0)
@@ -346,9 +425,9 @@ BaseCurve.prototype.decodePoint = function decodePoint(bytes, enc) {
   if ((bytes[0] === 0x04 || bytes[0] === 0x06 || bytes[0] === 0x07) &&
     bytes.length - 1 === 2 * len) {
     if (bytes[0] === 0x06)
-      assert(bytes[bytes.length - 1] % 2 === 0);
+      minAssert(bytes[bytes.length - 1] % 2 === 0);
     else if (bytes[0] === 0x07)
-      assert(bytes[bytes.length - 1] % 2 === 1);
+      minAssert(bytes[bytes.length - 1] % 2 === 1);
 
     var res = this.point(bytes.slice(1, 1 + len),
       bytes.slice(1 + len, 1 + 2 * len));
@@ -509,7 +588,7 @@ function theShort() {
         lambda = lambdas[0];
       } else {
         lambda = lambdas[1];
-        assert(this.g.mul(lambda).x.cmp(this.g.x.redMul(beta)) === 0);
+        minAssert(this.g.mul(lambda).x.cmp(this.g.x.redMul(beta)) === 0);
       }
     }
 
@@ -1589,7 +1668,7 @@ function EdwardsCurve(conf) {
   this.d = new BN(conf.d, 16).toRed(this.red);
   this.dd = this.d.redAdd(this.d);
 
-  assert(!this.twisted || this.c.fromRed().cmpn(1) === 0);
+  minAssert(!this.twisted || this.c.fromRed().cmpn(1) === 0);
   this.oneC = (conf.c | 0) === 1;
 }
 inherits(EdwardsCurve, Base);
@@ -2016,8 +2095,8 @@ function PresetCurve(options) {
   this.n = this.curve.n;
   this.hash = options.hash;
 
-  assert(this.g.validate(), 'Invalid curve');
-  assert(this.g.mul(this.n).isInfinity(), 'Invalid curve, G*N != O');
+  minAssert(this.g.validate(), 'Invalid curve');
+  minAssert(this.g.mul(this.n).isInfinity(), 'Invalid curve, G*N != O');
 }
 curves.PresetCurve = PresetCurve;
 
@@ -3045,7 +3124,6 @@ if (typeof self === 'object') {
   }
 }
 
-var assert = utils.assert;
 
 function KeyPair(ec, options) {
   this.ec = ec;
@@ -3130,10 +3208,10 @@ KeyPair.prototype._importPublic = function _importPublic(key, enc) {
     // Weierstrass/Edwards points on the other hand have both `x` and
     // `y` coordinates.
     if (this.ec.curve.type === 'mont') {
-      assert(key.x, 'Need x coordinate');
+      minAssert(key.x, 'Need x coordinate');
     } else if (this.ec.curve.type === 'short' ||
       this.ec.curve.type === 'edwards') {
-      assert(key.x && key.y, 'Need both x and y coordinate');
+      minAssert(key.x && key.y, 'Need both x and y coordinate');
     }
     this.pub = this.ec.curve.point(key.x, key.y);
     return;
@@ -3144,7 +3222,7 @@ KeyPair.prototype._importPublic = function _importPublic(key, enc) {
 // ECDH
 KeyPair.prototype.derive = function derive(pub) {
   if (!pub.validate()) {
-    assert(pub.validate(), 'public point not validated');
+    minAssert(pub.validate(), 'public point not validated');
   }
   return pub.mul(this.priv).getX();
 };
@@ -3170,7 +3248,7 @@ function Signature(options, enc) {
   if (this._importDER(options, enc))
     return;
 
-  assert(options.r && options.s, 'Signature without r or s');
+  minAssert(options.r && options.s, 'Signature without r or s');
   this.r = new BN(options.r, 16);
   this.s = new BN(options.s, 16);
   if (options.recoveryParam === undefined)
@@ -3340,7 +3418,7 @@ function EC(options) {
 
   // Shortcut `elliptic.ec(curve-name)`
   if (typeof options === 'string') {
-    assert(Object.prototype.hasOwnProperty.call(curves, options),
+    minAssert(Object.prototype.hasOwnProperty.call(curves, options),
       'Unknown curve ' + options);
 
     options = curves[options];
@@ -3440,17 +3518,17 @@ EC.prototype.sign = function sign(msg, key, enc, options) {
     options = {};
 
   if (typeof msg !== 'string' && typeof msg !== 'number' && !BN.isBN(msg)) {
-    assert(typeof msg === 'object' && msg && typeof msg.length === 'number',
+    minAssert(typeof msg === 'object' && msg && typeof msg.length === 'number',
       'Expected message to be an array-like, a hex string, or a BN instance');
-    assert((msg.length >>> 0) === msg.length); // non-negative 32-bit integer
-    for (var i = 0; i < msg.length; i++) assert((msg[i] & 255) === msg[i]);
+    minAssert((msg.length >>> 0) === msg.length); // non-negative 32-bit integer
+    for (var i = 0; i < msg.length; i++) minAssert((msg[i] & 255) === msg[i]);
   }
 
   key = this.keyFromPrivate(key, enc);
   msg = this._truncateToN(msg, false, options.msgBitLength);
 
   // Would fail further checks, but let's make the error message clear
-  assert(!msg.isNeg(), 'Can not sign a negative message');
+  minAssert(!msg.isNeg(), 'Can not sign a negative message');
 
   // Zero-extend key to provide enough entropy
   var bytes = this.n.byteLength();
@@ -3460,7 +3538,7 @@ EC.prototype.sign = function sign(msg, key, enc, options) {
   var nonce = msg.toArray('be', bytes);
 
   // Recheck nonce to be bijective to msg
-  assert((new BN(nonce)).eq(msg), 'Can not sign message');
+  minAssert((new BN(nonce)).eq(msg), 'Can not sign message');
 
   // Instantiate Hmac_DRBG
   var drbg = new HmacDRBG({
@@ -3553,7 +3631,7 @@ EC.prototype.verify = function verify(msg, signature, key, enc, options) {
 };
 
 EC.prototype.recoverPubKey = function(msg, signature, j, enc) {
-  assert((3 & j) === j, 'The recovery param is more than two bits');
+  minAssert((3 & j) === j, 'The recovery param is more than two bits');
   signature = new Signature(signature, enc);
 
   var n = this.n;
