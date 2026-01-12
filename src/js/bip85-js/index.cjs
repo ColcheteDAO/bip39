@@ -4,15 +4,625 @@ const sha256 = require('./node_modules/sha.js/sha256')
 var MD5 = require('md5.js')
 var Base = require('cipher-base')
 const typeforce = require('typeforce');
+
+var Buffer = require('safe-buffer').Buffer
+
+var SHA512_IV = /* @__PURE__ */ Uint32Array.from([
+  1779033703,
+  4089235720,
+  3144134277,
+  2227873595,
+  1013904242,
+  4271175723,
+  2773480762,
+  1595750129,
+  1359893119,
+  2917565137,
+  2600822924,
+  725511199,
+  528734635,
+  4215389547,
+  1541459225,
+  327033209
+]);
+
+var Hash = class {
+};
+
+var HashMD = class extends Hash {
+  blockLen;
+  outputLen;
+  padOffset;
+  isLE;
+  // For partial updates less than block size
+  buffer;
+  view;
+  finished = false;
+  length = 0;
+  pos = 0;
+  destroyed = false;
+  constructor(blockLen, outputLen, padOffset, isLE) {
+    super();
+    this.blockLen = blockLen;
+    this.outputLen = outputLen;
+    this.padOffset = padOffset;
+    this.isLE = isLE;
+    this.buffer = new Uint8Array(blockLen);
+    this.view = sha512_1CreateView(this.buffer);
+  }
+  update(data) {
+    sha512_1Aexists(this);
+    data = sha512_1ToBytes(data);
+    sha512_1Abytes(data);
+    const { view, buffer, blockLen } = this;
+    const len = data.length;
+    for (let pos = 0; pos < len;) {
+      const take = Math.min(blockLen - this.pos, len - pos);
+      if (take === blockLen) {
+        const dataView = sha512_1CreateView(data);
+        for (; blockLen <= len - pos; pos += blockLen) this.process(dataView, pos);
+        continue;
+      }
+      buffer.set(data.subarray(pos, pos + take), this.pos);
+      this.pos += take;
+      pos += take;
+      if (this.pos === blockLen) {
+        this.process(view, 0);
+        this.pos = 0;
+      }
+    }
+    this.length += data.length;
+    this.roundClean();
+    return this;
+  }
+  digestInto(out) {
+    sha512_1Aexists(this);
+    sha512_1Aoutput(out, this);
+    this.finished = true;
+    const { buffer, view, blockLen, isLE } = this;
+    let { pos } = this;
+    buffer[pos++] = 128;
+    sha512_1Clean(this.buffer.subarray(pos));
+    if (this.padOffset > blockLen - pos) {
+      this.process(view, 0);
+      pos = 0;
+    }
+    for (let i = pos; i < blockLen; i++) buffer[i] = 0;
+    sha512_1SetBigUint64(view, blockLen - 8, BigInt(this.length * 8), isLE);
+    this.process(view, 0);
+    const oview = sha512_1CreateView(out);
+    const len = this.outputLen;
+    if (len % 4) throw new Error("_sha2: outputLen should be aligned to 32bit");
+    const outLen = len / 4;
+    const state = this.get();
+    if (outLen > state.length) throw new Error("_sha2: outputLen bigger than state");
+    for (let i = 0; i < outLen; i++) oview.setUint32(4 * i, state[i], isLE);
+  }
+  digest() {
+    const { buffer, outputLen } = this;
+    this.digestInto(buffer);
+    const res = buffer.slice(0, outputLen);
+    this.destroy();
+    return res;
+  }
+  _cloneInto(to) {
+    to ||= new this.constructor();
+    to.set(...this.get());
+    const { blockLen, buffer, length, finished, destroyed, pos } = this;
+    to.destroyed = destroyed;
+    to.finished = finished;
+    to.length = length;
+    to.pos = pos;
+    if (length % blockLen) to.buffer.set(buffer);
+    return to;
+  }
+  clone() {
+    return this._cloneInto();
+  }
+};
+
+var SHA512 = class extends HashMD {
+  // We cannot use array here since array allows indexing by variable
+  // which means optimizer/compiler cannot use registers.
+  // h -- high 32 bits, l -- low 32 bits
+  Ah = SHA512_IV[0] | 0;
+  Al = SHA512_IV[1] | 0;
+  Bh = SHA512_IV[2] | 0;
+  Bl = SHA512_IV[3] | 0;
+  Ch = SHA512_IV[4] | 0;
+  Cl = SHA512_IV[5] | 0;
+  Dh = SHA512_IV[6] | 0;
+  Dl = SHA512_IV[7] | 0;
+  Eh = SHA512_IV[8] | 0;
+  El = SHA512_IV[9] | 0;
+  Fh = SHA512_IV[10] | 0;
+  Fl = SHA512_IV[11] | 0;
+  Gh = SHA512_IV[12] | 0;
+  Gl = SHA512_IV[13] | 0;
+  Hh = SHA512_IV[14] | 0;
+  Hl = SHA512_IV[15] | 0;
+  constructor(outputLen = 64) {
+    super(128, outputLen, 16, false);
+  }
+  // prettier-ignore
+  get() {
+    const { Ah, Al, Bh, Bl, Ch, Cl, Dh, Dl, Eh, El, Fh, Fl, Gh, Gl, Hh, Hl } = this;
+    return [Ah, Al, Bh, Bl, Ch, Cl, Dh, Dl, Eh, El, Fh, Fl, Gh, Gl, Hh, Hl];
+  }
+  // prettier-ignore
+  set(Ah, Al, Bh, Bl, Ch, Cl, Dh, Dl, Eh, El, Fh, Fl, Gh, Gl, Hh, Hl) {
+    this.Ah = Ah | 0;
+    this.Al = Al | 0;
+    this.Bh = Bh | 0;
+    this.Bl = Bl | 0;
+    this.Ch = Ch | 0;
+    this.Cl = Cl | 0;
+    this.Dh = Dh | 0;
+    this.Dl = Dl | 0;
+    this.Eh = Eh | 0;
+    this.El = El | 0;
+    this.Fh = Fh | 0;
+    this.Fl = Fl | 0;
+    this.Gh = Gh | 0;
+    this.Gl = Gl | 0;
+    this.Hh = Hh | 0;
+    this.Hl = Hl | 0;
+  }
+  process(view, offset) {
+    for (let i = 0; i < 16; i++, offset += 4) {
+      SHA512_W_H[i] = view.getUint32(offset);
+      SHA512_W_L[i] = view.getUint32(offset += 4);
+    }
+    for (let i = 16; i < 80; i++) {
+      const W15h = SHA512_W_H[i - 15] | 0;
+      const W15l = SHA512_W_L[i - 15] | 0;
+      const s0h = sha512_1RotrSH(W15h, W15l, 1) ^ sha512_1RotrSH(W15h, W15l, 8) ^ sha512_1ShrSH(W15h, W15l, 7);
+      const s0l = sha512_1RotrSL(W15h, W15l, 1) ^ sha512_1RotrSL(W15h, W15l, 8) ^ sha512_1ShrSL(W15h, W15l, 7);
+      const W2h = SHA512_W_H[i - 2] | 0;
+      const W2l = SHA512_W_L[i - 2] | 0;
+      const s1h = sha512_1RotrSH(W2h, W2l, 19) ^ sha512_1RotrBH(W2h, W2l, 61) ^ sha512_1ShrSH(W2h, W2l, 6);
+      const s1l = sha512_1RotrSL(W2h, W2l, 19) ^ sha512_1RotrBL(W2h, W2l, 61) ^ sha512_1ShrSL(W2h, W2l, 6);
+      const SUMl = sha512_1Add4L(s0l, s1l, SHA512_W_L[i - 7], SHA512_W_L[i - 16]);
+      const SUMh = sha512_1Add4H(SUMl, s0h, s1h, SHA512_W_H[i - 7], SHA512_W_H[i - 16]);
+      SHA512_W_H[i] = SUMh | 0;
+      SHA512_W_L[i] = SUMl | 0;
+    }
+    let { Ah, Al, Bh, Bl, Ch, Cl, Dh, Dl, Eh, El, Fh, Fl, Gh, Gl, Hh, Hl } = this;
+    for (let i = 0; i < 80; i++) {
+      const sigma1h = sha512_1RotrSH(Eh, El, 14) ^ sha512_1RotrSH(Eh, El, 18) ^ sha512_1RotrBH(Eh, El, 41);
+      const sigma1l = sha512_1RotrSL(Eh, El, 14) ^ sha512_1RotrSL(Eh, El, 18) ^ sha512_1RotrBL(Eh, El, 41);
+      const CHIh = Eh & Fh ^ ~Eh & Gh;
+      const CHIl = El & Fl ^ ~El & Gl;
+      const T1ll = sha512_1Add5L(Hl, sigma1l, CHIl, SHA512_Kl[i], SHA512_W_L[i]);
+      const T1h = sha512_1Add5H(T1ll, Hh, sigma1h, CHIh, SHA512_Kh[i], SHA512_W_H[i]);
+      const T1l = T1ll | 0;
+      const sigma0h = sha512_1RotrSH(Ah, Al, 28) ^ sha512_1RotrBH(Ah, Al, 34) ^ sha512_1RotrBH(Ah, Al, 39);
+      const sigma0l = sha512_1RotrSL(Ah, Al, 28) ^ sha512_1RotrBL(Ah, Al, 34) ^ sha512_1RotrBL(Ah, Al, 39);
+      const MAJh = Ah & Bh ^ Ah & Ch ^ Bh & Ch;
+      const MAJl = Al & Bl ^ Al & Cl ^ Bl & Cl;
+      Hh = Gh | 0;
+      Hl = Gl | 0;
+      Gh = Fh | 0;
+      Gl = Fl | 0;
+      Fh = Eh | 0;
+      Fl = El | 0;
+      ({ h: Eh, l: El } = sha512_1Add(Dh | 0, Dl | 0, T1h | 0, T1l | 0));
+      Dh = Ch | 0;
+      Dl = Cl | 0;
+      Ch = Bh | 0;
+      Cl = Bl | 0;
+      Bh = Ah | 0;
+      Bl = Al | 0;
+      const All = sha512_1Add3L(T1l, sigma0l, MAJl);
+      Ah = sha512_1Add3H(All, T1h, sigma0h, MAJh);
+      Al = All | 0;
+    }
+    ({ h: Ah, l: Al } = sha512_1Add(this.Ah | 0, this.Al | 0, Ah | 0, Al | 0));
+    ({ h: Bh, l: Bl } = sha512_1Add(this.Bh | 0, this.Bl | 0, Bh | 0, Bl | 0));
+    ({ h: Ch, l: Cl } = sha512_1Add(this.Ch | 0, this.Cl | 0, Ch | 0, Cl | 0));
+    ({ h: Dh, l: Dl } = sha512_1Add(this.Dh | 0, this.Dl | 0, Dh | 0, Dl | 0));
+    ({ h: Eh, l: El } = sha512_1Add(this.Eh | 0, this.El | 0, Eh | 0, El | 0));
+    ({ h: Fh, l: Fl } = sha512_1Add(this.Fh | 0, this.Fl | 0, Fh | 0, Fl | 0));
+    ({ h: Gh, l: Gl } = sha512_1Add(this.Gh | 0, this.Gl | 0, Gh | 0, Gl | 0));
+    ({ h: Hh, l: Hl } = sha512_1Add(this.Hh | 0, this.Hl | 0, Hh | 0, Hl | 0));
+    this.set(Ah, Al, Bh, Bl, Ch, Cl, Dh, Dl, Eh, El, Fh, Fl, Gh, Gl, Hh, Hl);
+  }
+  roundClean() {
+    sha512_1Clean(SHA512_W_H, SHA512_W_L);
+  }
+  destroy() {
+    sha512_1Clean(this.buffer);
+    this.set(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+  }
+};
+
+function sha512(){
+
+var K = [
+	0x428a2f98,
+	0xd728ae22,
+	0x71374491,
+	0x23ef65cd,
+	0xb5c0fbcf,
+	0xec4d3b2f,
+	0xe9b5dba5,
+	0x8189dbbc,
+	0x3956c25b,
+	0xf348b538,
+	0x59f111f1,
+	0xb605d019,
+	0x923f82a4,
+	0xaf194f9b,
+	0xab1c5ed5,
+	0xda6d8118,
+	0xd807aa98,
+	0xa3030242,
+	0x12835b01,
+	0x45706fbe,
+	0x243185be,
+	0x4ee4b28c,
+	0x550c7dc3,
+	0xd5ffb4e2,
+	0x72be5d74,
+	0xf27b896f,
+	0x80deb1fe,
+	0x3b1696b1,
+	0x9bdc06a7,
+	0x25c71235,
+	0xc19bf174,
+	0xcf692694,
+	0xe49b69c1,
+	0x9ef14ad2,
+	0xefbe4786,
+	0x384f25e3,
+	0x0fc19dc6,
+	0x8b8cd5b5,
+	0x240ca1cc,
+	0x77ac9c65,
+	0x2de92c6f,
+	0x592b0275,
+	0x4a7484aa,
+	0x6ea6e483,
+	0x5cb0a9dc,
+	0xbd41fbd4,
+	0x76f988da,
+	0x831153b5,
+	0x983e5152,
+	0xee66dfab,
+	0xa831c66d,
+	0x2db43210,
+	0xb00327c8,
+	0x98fb213f,
+	0xbf597fc7,
+	0xbeef0ee4,
+	0xc6e00bf3,
+	0x3da88fc2,
+	0xd5a79147,
+	0x930aa725,
+	0x06ca6351,
+	0xe003826f,
+	0x14292967,
+	0x0a0e6e70,
+	0x27b70a85,
+	0x46d22ffc,
+	0x2e1b2138,
+	0x5c26c926,
+	0x4d2c6dfc,
+	0x5ac42aed,
+	0x53380d13,
+	0x9d95b3df,
+	0x650a7354,
+	0x8baf63de,
+	0x766a0abb,
+	0x3c77b2a8,
+	0x81c2c92e,
+	0x47edaee6,
+	0x92722c85,
+	0x1482353b,
+	0xa2bfe8a1,
+	0x4cf10364,
+	0xa81a664b,
+	0xbc423001,
+	0xc24b8b70,
+	0xd0f89791,
+	0xc76c51a3,
+	0x0654be30,
+	0xd192e819,
+	0xd6ef5218,
+	0xd6990624,
+	0x5565a910,
+	0xf40e3585,
+	0x5771202a,
+	0x106aa070,
+	0x32bbd1b8,
+	0x19a4c116,
+	0xb8d2d0c8,
+	0x1e376c08,
+	0x5141ab53,
+	0x2748774c,
+	0xdf8eeb99,
+	0x34b0bcb5,
+	0xe19b48a8,
+	0x391c0cb3,
+	0xc5c95a63,
+	0x4ed8aa4a,
+	0xe3418acb,
+	0x5b9cca4f,
+	0x7763e373,
+	0x682e6ff3,
+	0xd6b2b8a3,
+	0x748f82ee,
+	0x5defb2fc,
+	0x78a5636f,
+	0x43172f60,
+	0x84c87814,
+	0xa1f0ab72,
+	0x8cc70208,
+	0x1a6439ec,
+	0x90befffa,
+	0x23631e28,
+	0xa4506ceb,
+	0xde82bde9,
+	0xbef9a3f7,
+	0xb2c67915,
+	0xc67178f2,
+	0xe372532b,
+	0xca273ece,
+	0xea26619c,
+	0xd186b8c7,
+	0x21c0c207,
+	0xeada7dd6,
+	0xcde0eb1e,
+	0xf57d4f7f,
+	0xee6ed178,
+	0x06f067aa,
+	0x72176fba,
+	0x0a637dc5,
+	0xa2c898a6,
+	0x113f9804,
+	0xbef90dae,
+	0x1b710b35,
+	0x131c471b,
+	0x28db77f5,
+	0x23047d84,
+	0x32caab7b,
+	0x40c72493,
+	0x3c9ebe0a,
+	0x15c9bebc,
+	0x431d67c4,
+	0x9c100d4c,
+	0x4cc5d4be,
+	0xcb3e42b6,
+	0x597f299c,
+	0xfc657e2a,
+	0x5fcb6fab,
+	0x3ad6faec,
+	0x6c44198c,
+	0x4a475817
+];
+
+var W = new Array(160);
+
+function Sha512() {
+	this.init();
+	this._w = W;
+
+	Hash.call(this, 128, 112);
+}
+
+inherits(Sha512, Hash);
+
+Sha512.prototype.init = function () {
+	this._ah = 0x6a09e667;
+	this._bh = 0xbb67ae85;
+	this._ch = 0x3c6ef372;
+	this._dh = 0xa54ff53a;
+	this._eh = 0x510e527f;
+	this._fh = 0x9b05688c;
+	this._gh = 0x1f83d9ab;
+	this._hh = 0x5be0cd19;
+
+	this._al = 0xf3bcc908;
+	this._bl = 0x84caa73b;
+	this._cl = 0xfe94f82b;
+	this._dl = 0x5f1d36f1;
+	this._el = 0xade682d1;
+	this._fl = 0x2b3e6c1f;
+	this._gl = 0xfb41bd6b;
+	this._hl = 0x137e2179;
+
+	return this;
+};
+
+function Ch(x, y, z) {
+	return z ^ (x & (y ^ z));
+}
+
+function maj(x, y, z) {
+	return (x & y) | (z & (x | y));
+}
+
+function sigma0(x, xl) {
+	return ((x >>> 28) | (xl << 4)) ^ ((xl >>> 2) | (x << 30)) ^ ((xl >>> 7) | (x << 25));
+}
+
+function sigma1(x, xl) {
+	return ((x >>> 14) | (xl << 18)) ^ ((x >>> 18) | (xl << 14)) ^ ((xl >>> 9) | (x << 23));
+}
+
+function Gamma0(x, xl) {
+	return ((x >>> 1) | (xl << 31)) ^ ((x >>> 8) | (xl << 24)) ^ (x >>> 7);
+}
+
+function Gamma0l(x, xl) {
+	return ((x >>> 1) | (xl << 31)) ^ ((x >>> 8) | (xl << 24)) ^ ((x >>> 7) | (xl << 25));
+}
+
+function Gamma1(x, xl) {
+	return ((x >>> 19) | (xl << 13)) ^ ((xl >>> 29) | (x << 3)) ^ (x >>> 6);
+}
+
+function Gamma1l(x, xl) {
+	return ((x >>> 19) | (xl << 13)) ^ ((xl >>> 29) | (x << 3)) ^ ((x >>> 6) | (xl << 26));
+}
+
+function getCarry(a, b) {
+	return (a >>> 0) < (b >>> 0) ? 1 : 0;
+}
+
+Sha512.prototype._update = function (M) {
+	var w = this._w;
+
+	var ah = this._ah | 0;
+	var bh = this._bh | 0;
+	var ch = this._ch | 0;
+	var dh = this._dh | 0;
+	var eh = this._eh | 0;
+	var fh = this._fh | 0;
+	var gh = this._gh | 0;
+	var hh = this._hh | 0;
+
+	var al = this._al | 0;
+	var bl = this._bl | 0;
+	var cl = this._cl | 0;
+	var dl = this._dl | 0;
+	var el = this._el | 0;
+	var fl = this._fl | 0;
+	var gl = this._gl | 0;
+	var hl = this._hl | 0;
+
+	for (var i = 0; i < 32; i += 2) {
+		w[i] = M.readInt32BE(i * 4);
+		w[i + 1] = M.readInt32BE((i * 4) + 4);
+	}
+	for (; i < 160; i += 2) {
+		var xh = w[i - (15 * 2)];
+		var xl = w[i - (15 * 2) + 1];
+		var gamma0 = Gamma0(xh, xl);
+		var gamma0l = Gamma0l(xl, xh);
+
+		xh = w[i - (2 * 2)];
+		xl = w[i - (2 * 2) + 1];
+		var gamma1 = Gamma1(xh, xl);
+		var gamma1l = Gamma1l(xl, xh);
+
+		// w[i] = gamma0 + w[i - 7] + gamma1 + w[i - 16]
+		var Wi7h = w[i - (7 * 2)];
+		var Wi7l = w[i - (7 * 2) + 1];
+
+		var Wi16h = w[i - (16 * 2)];
+		var Wi16l = w[i - (16 * 2) + 1];
+
+		var Wil = (gamma0l + Wi7l) | 0;
+		var Wih = (gamma0 + Wi7h + getCarry(Wil, gamma0l)) | 0;
+		Wil = (Wil + gamma1l) | 0;
+		Wih = (Wih + gamma1 + getCarry(Wil, gamma1l)) | 0;
+		Wil = (Wil + Wi16l) | 0;
+		Wih = (Wih + Wi16h + getCarry(Wil, Wi16l)) | 0;
+
+		w[i] = Wih;
+		w[i + 1] = Wil;
+	}
+
+	for (var j = 0; j < 160; j += 2) {
+		Wih = w[j];
+		Wil = w[j + 1];
+
+		var majh = maj(ah, bh, ch);
+		var majl = maj(al, bl, cl);
+
+		var sigma0h = sigma0(ah, al);
+		var sigma0l = sigma0(al, ah);
+		var sigma1h = sigma1(eh, el);
+		var sigma1l = sigma1(el, eh);
+
+		// t1 = h + sigma1 + ch + K[j] + w[j]
+		var Kih = K[j];
+		var Kil = K[j + 1];
+
+		var chh = Ch(eh, fh, gh);
+		var chl = Ch(el, fl, gl);
+
+		var t1l = (hl + sigma1l) | 0;
+		var t1h = (hh + sigma1h + getCarry(t1l, hl)) | 0;
+		t1l = (t1l + chl) | 0;
+		t1h = (t1h + chh + getCarry(t1l, chl)) | 0;
+		t1l = (t1l + Kil) | 0;
+		t1h = (t1h + Kih + getCarry(t1l, Kil)) | 0;
+		t1l = (t1l + Wil) | 0;
+		t1h = (t1h + Wih + getCarry(t1l, Wil)) | 0;
+
+		// t2 = sigma0 + maj
+		var t2l = (sigma0l + majl) | 0;
+		var t2h = (sigma0h + majh + getCarry(t2l, sigma0l)) | 0;
+
+		hh = gh;
+		hl = gl;
+		gh = fh;
+		gl = fl;
+		fh = eh;
+		fl = el;
+		el = (dl + t1l) | 0;
+		eh = (dh + t1h + getCarry(el, dl)) | 0;
+		dh = ch;
+		dl = cl;
+		ch = bh;
+		cl = bl;
+		bh = ah;
+		bl = al;
+		al = (t1l + t2l) | 0;
+		ah = (t1h + t2h + getCarry(al, t1l)) | 0;
+	}
+
+	this._al = (this._al + al) | 0;
+	this._bl = (this._bl + bl) | 0;
+	this._cl = (this._cl + cl) | 0;
+	this._dl = (this._dl + dl) | 0;
+	this._el = (this._el + el) | 0;
+	this._fl = (this._fl + fl) | 0;
+	this._gl = (this._gl + gl) | 0;
+	this._hl = (this._hl + hl) | 0;
+
+	this._ah = (this._ah + ah + getCarry(this._al, al)) | 0;
+	this._bh = (this._bh + bh + getCarry(this._bl, bl)) | 0;
+	this._ch = (this._ch + ch + getCarry(this._cl, cl)) | 0;
+	this._dh = (this._dh + dh + getCarry(this._dl, dl)) | 0;
+	this._eh = (this._eh + eh + getCarry(this._el, el)) | 0;
+	this._fh = (this._fh + fh + getCarry(this._fl, fl)) | 0;
+	this._gh = (this._gh + gh + getCarry(this._gl, gl)) | 0;
+	this._hh = (this._hh + hh + getCarry(this._hl, hl)) | 0;
+};
+
+Sha512.prototype._hash = function () {
+	var H = Buffer.allocUnsafe(64);
+
+	function writeInt64BE(h, l, offset) {
+		H.writeInt32BE(h, offset);
+		H.writeInt32BE(l, offset + 4);
+	}
+
+	writeInt64BE(this._ah, this._al, 0);
+	writeInt64BE(this._bh, this._bl, 8);
+	writeInt64BE(this._ch, this._cl, 16);
+	writeInt64BE(this._dh, this._dl, 24);
+	writeInt64BE(this._eh, this._el, 32);
+	writeInt64BE(this._fh, this._fl, 40);
+	writeInt64BE(this._gh, this._gl, 48);
+	writeInt64BE(this._hh, this._hl, 56);
+
+	return H;
+};
+
+return Sha512;
+}
+
 function createHmac(alg, key) {
 
   var inherits = require('inherits')
   var Legacy = require('./node_modules/create-hmac/legacy')
   var Base = require('cipher-base')
-  var Buffer = require('safe-buffer').Buffer
-  var md5 = MD5
-
   var sha = require('sha.js')
+  var md5 = MD5
 
   var ZEROS = Buffer.alloc(128)
 
@@ -53,7 +663,7 @@ function createHmac(alg, key) {
   Hmac.prototype._final = function() {
     var h = this._hash.digest()
     var hash = this._alg === 'rmd160' ? new RIPEMD160() : sha(this._alg)
-    return hash.update(this._opad).update(h).digest()
+    return hash.update(this._opad).update(Buffer.from(h)).digest()
   }
 
   function createHmac(alg, key) {
@@ -116,13 +726,10 @@ if (typeof module === 'object') {
 BN.BN = BN;
 BN.wordSize = 26;
 
-var Buffer;
 try {
   if (typeof window !== 'undefined' && typeof window.Buffer !== 'undefined') {
     Buffer = window.Buffer;
-  } else {
-    Buffer = require('buffer').Buffer;
-  }
+  } 
 } catch (e) {
 }
 
@@ -7420,7 +8027,6 @@ var W = new Array(80);
 
 function sha(algorithm) {
   var alg = algorithm.toLowerCase();
-
   var Algorithm = eval(`${alg}`);
   if (!Algorithm) {
     throw new Error(alg + ' is not supported (we accept pull requests)');
@@ -7979,8 +8585,7 @@ __export(sha2_exports, {
   sha512_256: () => sha512_256
 });
 module.exports = __toCommonJS(sha2_exports);
-var Hash = class {
-};
+
 
 
 
@@ -8177,9 +8782,6 @@ function sha512_1CreateView(arr) {
   return new DataView(arr.buffer, arr.byteOffset, arr.byteLength);
 }
 
-var Hash = class {
-};
-
 function sha512_1CreateHasher(hashCons) {
   const hashC = (msg) => hashCons().update(sha512_1ToBytes(msg)).digest();
   const tmp = hashCons();
@@ -8201,231 +8803,11 @@ function sha512_1SetBigUint64(view, byteOffset, value, isLE) {
   view.setUint32(byteOffset + l, wl, isLE);
 }
 
-var HashMD = class extends Hash {
-  blockLen;
-  outputLen;
-  padOffset;
-  isLE;
-  // For partial updates less than block size
-  buffer;
-  view;
-  finished = false;
-  length = 0;
-  pos = 0;
-  destroyed = false;
-  constructor(blockLen, outputLen, padOffset, isLE) {
-    super();
-    this.blockLen = blockLen;
-    this.outputLen = outputLen;
-    this.padOffset = padOffset;
-    this.isLE = isLE;
-    this.buffer = new Uint8Array(blockLen);
-    this.view = sha512_1CreateView(this.buffer);
-  }
-  update(data) {
-    sha512_1Aexists(this);
-    data = sha512_1ToBytes(data);
-    sha512_1Abytes(data);
-    const { view, buffer, blockLen } = this;
-    const len = data.length;
-    for (let pos = 0; pos < len;) {
-      const take = Math.min(blockLen - this.pos, len - pos);
-      if (take === blockLen) {
-        const dataView = sha512_1CreateView(data);
-        for (; blockLen <= len - pos; pos += blockLen) this.process(dataView, pos);
-        continue;
-      }
-      buffer.set(data.subarray(pos, pos + take), this.pos);
-      this.pos += take;
-      pos += take;
-      if (this.pos === blockLen) {
-        this.process(view, 0);
-        this.pos = 0;
-      }
-    }
-    this.length += data.length;
-    this.roundClean();
-    return this;
-  }
-  digestInto(out) {
-    sha512_1Aexists(this);
-    sha512_1Aoutput(out, this);
-    this.finished = true;
-    const { buffer, view, blockLen, isLE } = this;
-    let { pos } = this;
-    buffer[pos++] = 128;
-    sha512_1Clean(this.buffer.subarray(pos));
-    if (this.padOffset > blockLen - pos) {
-      this.process(view, 0);
-      pos = 0;
-    }
-    for (let i = pos; i < blockLen; i++) buffer[i] = 0;
-    sha512_1SetBigUint64(view, blockLen - 8, BigInt(this.length * 8), isLE);
-    this.process(view, 0);
-    const oview = sha512_1CreateView(out);
-    const len = this.outputLen;
-    if (len % 4) throw new Error("_sha2: outputLen should be aligned to 32bit");
-    const outLen = len / 4;
-    const state = this.get();
-    if (outLen > state.length) throw new Error("_sha2: outputLen bigger than state");
-    for (let i = 0; i < outLen; i++) oview.setUint32(4 * i, state[i], isLE);
-  }
-  digest() {
-    const { buffer, outputLen } = this;
-    this.digestInto(buffer);
-    const res = buffer.slice(0, outputLen);
-    this.destroy();
-    return res;
-  }
-  _cloneInto(to) {
-    to ||= new this.constructor();
-    to.set(...this.get());
-    const { blockLen, buffer, length, finished, destroyed, pos } = this;
-    to.destroyed = destroyed;
-    to.finished = finished;
-    to.length = length;
-    to.pos = pos;
-    if (length % blockLen) to.buffer.set(buffer);
-    return to;
-  }
-  clone() {
-    return this._cloneInto();
-  }
-};
 
-var SHA512_IV = /* @__PURE__ */ Uint32Array.from([
-  1779033703,
-  4089235720,
-  3144134277,
-  2227873595,
-  1013904242,
-  4271175723,
-  2773480762,
-  1595750129,
-  1359893119,
-  2917565137,
-  2600822924,
-  725511199,
-  528734635,
-  4215389547,
-  1541459225,
-  327033209
-]);
 
-var SHA512 = class extends HashMD {
-  // We cannot use array here since array allows indexing by variable
-  // which means optimizer/compiler cannot use registers.
-  // h -- high 32 bits, l -- low 32 bits
-  Ah = SHA512_IV[0] | 0;
-  Al = SHA512_IV[1] | 0;
-  Bh = SHA512_IV[2] | 0;
-  Bl = SHA512_IV[3] | 0;
-  Ch = SHA512_IV[4] | 0;
-  Cl = SHA512_IV[5] | 0;
-  Dh = SHA512_IV[6] | 0;
-  Dl = SHA512_IV[7] | 0;
-  Eh = SHA512_IV[8] | 0;
-  El = SHA512_IV[9] | 0;
-  Fh = SHA512_IV[10] | 0;
-  Fl = SHA512_IV[11] | 0;
-  Gh = SHA512_IV[12] | 0;
-  Gl = SHA512_IV[13] | 0;
-  Hh = SHA512_IV[14] | 0;
-  Hl = SHA512_IV[15] | 0;
-  constructor(outputLen = 64) {
-    super(128, outputLen, 16, false);
-  }
-  // prettier-ignore
-  get() {
-    const { Ah, Al, Bh, Bl, Ch, Cl, Dh, Dl, Eh, El, Fh, Fl, Gh, Gl, Hh, Hl } = this;
-    return [Ah, Al, Bh, Bl, Ch, Cl, Dh, Dl, Eh, El, Fh, Fl, Gh, Gl, Hh, Hl];
-  }
-  // prettier-ignore
-  set(Ah, Al, Bh, Bl, Ch, Cl, Dh, Dl, Eh, El, Fh, Fl, Gh, Gl, Hh, Hl) {
-    this.Ah = Ah | 0;
-    this.Al = Al | 0;
-    this.Bh = Bh | 0;
-    this.Bl = Bl | 0;
-    this.Ch = Ch | 0;
-    this.Cl = Cl | 0;
-    this.Dh = Dh | 0;
-    this.Dl = Dl | 0;
-    this.Eh = Eh | 0;
-    this.El = El | 0;
-    this.Fh = Fh | 0;
-    this.Fl = Fl | 0;
-    this.Gh = Gh | 0;
-    this.Gl = Gl | 0;
-    this.Hh = Hh | 0;
-    this.Hl = Hl | 0;
-  }
-  process(view, offset) {
-    for (let i = 0; i < 16; i++, offset += 4) {
-      SHA512_W_H[i] = view.getUint32(offset);
-      SHA512_W_L[i] = view.getUint32(offset += 4);
-    }
-    for (let i = 16; i < 80; i++) {
-      const W15h = SHA512_W_H[i - 15] | 0;
-      const W15l = SHA512_W_L[i - 15] | 0;
-      const s0h = sha512_1RotrSH(W15h, W15l, 1) ^ sha512_1RotrSH(W15h, W15l, 8) ^ sha512_1ShrSH(W15h, W15l, 7);
-      const s0l = sha512_1RotrSL(W15h, W15l, 1) ^ sha512_1RotrSL(W15h, W15l, 8) ^ sha512_1ShrSL(W15h, W15l, 7);
-      const W2h = SHA512_W_H[i - 2] | 0;
-      const W2l = SHA512_W_L[i - 2] | 0;
-      const s1h = sha512_1RotrSH(W2h, W2l, 19) ^ sha512_1RotrBH(W2h, W2l, 61) ^ sha512_1ShrSH(W2h, W2l, 6);
-      const s1l = sha512_1RotrSL(W2h, W2l, 19) ^ sha512_1RotrBL(W2h, W2l, 61) ^ sha512_1ShrSL(W2h, W2l, 6);
-      const SUMl = sha512_1Add4L(s0l, s1l, SHA512_W_L[i - 7], SHA512_W_L[i - 16]);
-      const SUMh = sha512_1Add4H(SUMl, s0h, s1h, SHA512_W_H[i - 7], SHA512_W_H[i - 16]);
-      SHA512_W_H[i] = SUMh | 0;
-      SHA512_W_L[i] = SUMl | 0;
-    }
-    let { Ah, Al, Bh, Bl, Ch, Cl, Dh, Dl, Eh, El, Fh, Fl, Gh, Gl, Hh, Hl } = this;
-    for (let i = 0; i < 80; i++) {
-      const sigma1h = sha512_1RotrSH(Eh, El, 14) ^ sha512_1RotrSH(Eh, El, 18) ^ sha512_1RotrBH(Eh, El, 41);
-      const sigma1l = sha512_1RotrSL(Eh, El, 14) ^ sha512_1RotrSL(Eh, El, 18) ^ sha512_1RotrBL(Eh, El, 41);
-      const CHIh = Eh & Fh ^ ~Eh & Gh;
-      const CHIl = El & Fl ^ ~El & Gl;
-      const T1ll = sha512_1Add5L(Hl, sigma1l, CHIl, SHA512_Kl[i], SHA512_W_L[i]);
-      const T1h = sha512_1Add5H(T1ll, Hh, sigma1h, CHIh, SHA512_Kh[i], SHA512_W_H[i]);
-      const T1l = T1ll | 0;
-      const sigma0h = sha512_1RotrSH(Ah, Al, 28) ^ sha512_1RotrBH(Ah, Al, 34) ^ sha512_1RotrBH(Ah, Al, 39);
-      const sigma0l = sha512_1RotrSL(Ah, Al, 28) ^ sha512_1RotrBL(Ah, Al, 34) ^ sha512_1RotrBL(Ah, Al, 39);
-      const MAJh = Ah & Bh ^ Ah & Ch ^ Bh & Ch;
-      const MAJl = Al & Bl ^ Al & Cl ^ Bl & Cl;
-      Hh = Gh | 0;
-      Hl = Gl | 0;
-      Gh = Fh | 0;
-      Gl = Fl | 0;
-      Fh = Eh | 0;
-      Fl = El | 0;
-      ({ h: Eh, l: El } = sha512_1Add(Dh | 0, Dl | 0, T1h | 0, T1l | 0));
-      Dh = Ch | 0;
-      Dl = Cl | 0;
-      Ch = Bh | 0;
-      Cl = Bl | 0;
-      Bh = Ah | 0;
-      Bl = Al | 0;
-      const All = sha512_1Add3L(T1l, sigma0l, MAJl);
-      Ah = sha512_1Add3H(All, T1h, sigma0h, MAJh);
-      Al = All | 0;
-    }
-    ({ h: Ah, l: Al } = sha512_1Add(this.Ah | 0, this.Al | 0, Ah | 0, Al | 0));
-    ({ h: Bh, l: Bl } = sha512_1Add(this.Bh | 0, this.Bl | 0, Bh | 0, Bl | 0));
-    ({ h: Ch, l: Cl } = sha512_1Add(this.Ch | 0, this.Cl | 0, Ch | 0, Cl | 0));
-    ({ h: Dh, l: Dl } = sha512_1Add(this.Dh | 0, this.Dl | 0, Dh | 0, Dl | 0));
-    ({ h: Eh, l: El } = sha512_1Add(this.Eh | 0, this.El | 0, Eh | 0, El | 0));
-    ({ h: Fh, l: Fl } = sha512_1Add(this.Fh | 0, this.Fl | 0, Fh | 0, Fl | 0));
-    ({ h: Gh, l: Gl } = sha512_1Add(this.Gh | 0, this.Gl | 0, Gh | 0, Gl | 0));
-    ({ h: Hh, l: Hl } = sha512_1Add(this.Hh | 0, this.Hl | 0, Hh | 0, Hl | 0));
-    this.set(Ah, Al, Bh, Bl, Ch, Cl, Dh, Dl, Eh, El, Fh, Fl, Gh, Gl, Hh, Hl);
-  }
-  roundClean() {
-    sha512_1Clean(SHA512_W_H, SHA512_W_L);
-  }
-  destroy() {
-    sha512_1Clean(this.buffer);
-    this.set(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-  }
-};
+
+
+
 var sha512_1Sha512 = /* @__PURE__ */ sha512_1CreateHasher(() => new SHA512());
 
 class HMAC extends Hash {
