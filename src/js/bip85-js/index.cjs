@@ -8,11 +8,40 @@ const createHmac = require('create-hmac');
 let BN = require('bn.js')
 var HmacDRBG = require('hmac-drbg');
 var utils = require('./node_modules/elliptic/lib/elliptic/utils');
-let hashSha = require('./node_modules/hash.js/lib/hash/sha');
-let hash = exports
-hash.sha256 = hashSha.sha256;
-hash.sha384 = hashSha.sha384;
-hash.sha512 = hashSha.sha512;
+
+let utilsHash = require('./node_modules/hash.js/lib/hash/utils');
+
+
+function SHA384() {
+  if (!(this instanceof SHA384))
+    return new SHA384();
+
+  SHA512.call(this);
+  this.h = [
+    0xcbbb9d5d, 0xc1059ed8,
+    0x629a292a, 0x367cd507,
+    0x9159015a, 0x3070dd17,
+    0x152fecd8, 0xf70e5939,
+    0x67332667, 0xffc00b31,
+    0x8eb44a87, 0x68581511,
+    0xdb0c2e0d, 0x64f98fa7,
+    0x47b5481d, 0xbefa4fa4];
+}
+inherits(SHA384, SHA512);
+module.exports = SHA384;
+
+SHA384.blockSize = 1024;
+SHA384.outSize = 384;
+SHA384.hmacStrength = 192;
+SHA384.padLength = 128;
+
+SHA384.prototype._digest = function digest(enc) {
+  if (enc === 'hex')
+    return utilsHash.toHex32(this.h.slice(0, 12), 'big');
+  else
+    return utilsHash.split32(this.h.slice(0, 12), 'big');
+};
+
 var curve = exports;
 var assert = utils.assert;
 
@@ -288,18 +317,18 @@ BaseCurve.prototype.decodePoint = function decodePoint(bytes, enc) {
 
   // uncompressed, hybrid-odd, hybrid-even
   if ((bytes[0] === 0x04 || bytes[0] === 0x06 || bytes[0] === 0x07) &&
-      bytes.length - 1 === 2 * len) {
+    bytes.length - 1 === 2 * len) {
     if (bytes[0] === 0x06)
       assert(bytes[bytes.length - 1] % 2 === 0);
     else if (bytes[0] === 0x07)
       assert(bytes[bytes.length - 1] % 2 === 1);
 
-    var res =  this.point(bytes.slice(1, 1 + len),
+    var res = this.point(bytes.slice(1, 1 + len),
       bytes.slice(1 + len, 1 + 2 * len));
 
     return res;
   } else if ((bytes[0] === 0x02 || bytes[0] === 0x03) &&
-              bytes.length - 1 === len) {
+    bytes.length - 1 === len) {
     return this.pointFromX(bytes.slice(1, 1 + len), bytes[0] === 0x03);
   }
   throw new Error('Unknown point format');
@@ -314,9 +343,9 @@ BasePoint.prototype._encode = function _encode(compact) {
   var x = this.getX().toArray('be', len);
 
   if (compact)
-    return [ this.getY().isEven() ? 0x02 : 0x03 ].concat(x);
+    return [this.getY().isEven() ? 0x02 : 0x03].concat(x);
 
-  return [ 0x04 ].concat(x, this.getY().toArray('be', len));
+  return [0x04].concat(x, this.getY().toArray('be', len));
 };
 
 BasePoint.prototype.encode = function encode(enc, compact) {
@@ -355,7 +384,7 @@ BasePoint.prototype._getDoubles = function _getDoubles(step, power) {
   if (this.precomputed && this.precomputed.doubles)
     return this.precomputed.doubles;
 
-  var doubles = [ this ];
+  var doubles = [this];
   var acc = this;
   for (var i = 0; i < power; i += step) {
     for (var j = 0; j < step; j++)
@@ -372,7 +401,7 @@ BasePoint.prototype._getNAFPoints = function _getNAFPoints(wnd) {
   if (this.precomputed && this.precomputed.naf)
     return this.precomputed.naf;
 
-  var res = [ this ];
+  var res = [this];
   var max = (1 << wnd) - 1;
   var dbl = max === 1 ? null : this.dbl();
   for (var i = 1; i < max; i++)
@@ -1988,7 +2017,7 @@ defineCurve('p192', {
   a: 'ffffffff ffffffff ffffffff fffffffe ffffffff fffffffc',
   b: '64210519 e59c80e7 0fa7e9ab 72243049 feb8deec c146b9b1',
   n: 'ffffffff ffffffff ffffffff 99def836 146bc9b1 b4d22831',
-  hash: hash.sha256,
+  hash: sha256,
   gRed: false,
   g: [
     '188da80e b03090f6 7cbf20eb 43a18800 f4ff0afd 82ff1012',
@@ -2003,7 +2032,7 @@ defineCurve('p224', {
   a: 'ffffffff ffffffff ffffffff fffffffe ffffffff ffffffff fffffffe',
   b: 'b4050a85 0c04b3ab f5413256 5044b0b7 d7bfd8ba 270b3943 2355ffb4',
   n: 'ffffffff ffffffff ffffffff ffff16a2 e0b8f03e 13dd2945 5c5c2a3d',
-  hash: hash.sha256,
+  hash: sha256,
   gRed: false,
   g: [
     'b70e0cbd 6bb4bf7f 321390b9 4a03c1d3 56c21122 343280d6 115c1d21',
@@ -2018,7 +2047,7 @@ defineCurve('p256', {
   a: 'ffffffff 00000001 00000000 00000000 00000000 ffffffff ffffffff fffffffc',
   b: '5ac635d8 aa3a93e7 b3ebbd55 769886bc 651d06b0 cc53b0f6 3bce3c3e 27d2604b',
   n: 'ffffffff 00000000 ffffffff ffffffff bce6faad a7179e84 f3b9cac2 fc632551',
-  hash: hash.sha256,
+  hash: sha256,
   gRed: false,
   g: [
     '6b17d1f2 e12c4247 f8bce6e5 63a440f2 77037d81 2deb33a0 f4a13945 d898c296',
@@ -2037,7 +2066,7 @@ defineCurve('p384', {
     '5013875a c656398d 8a2ed19d 2a85c8ed d3ec2aef',
   n: 'ffffffff ffffffff ffffffff ffffffff ffffffff ffffffff c7634d81 ' +
     'f4372ddf 581a0db2 48b0a77a ecec196a ccc52973',
-  hash: hash.sha384,
+  hash: SHA384,
   gRed: false,
   g: [
     'aa87ca22 be8b0537 8eb1c71e f320ad74 6e1d3b62 8ba79b98 59f741e0 82542a38 ' +
@@ -2062,7 +2091,7 @@ defineCurve('p521', {
   n: '000001ff ffffffff ffffffff ffffffff ffffffff ffffffff ' +
     'ffffffff ffffffff fffffffa 51868783 bf2f966b 7fcc0148 ' +
     'f709a5d0 3bb5c9b8 899c47ae bb6fb71e 91386409',
-  hash: hash.sha512,
+  hash: SHA512,
   gRed: false,
   g: [
     '000000c6 858e06b7 0404e9cd 9e3ecb66 2395b442 9c648139 ' +
@@ -2081,7 +2110,7 @@ defineCurve('curve25519', {
   a: '76d06',
   b: '1',
   n: '1000000000000000 0000000000000000 14def9dea2f79cd6 5812631a5cf5d3ed',
-  hash: hash.sha256,
+  hash: sha256,
   gRed: false,
   g: [
     '9',
@@ -2097,7 +2126,7 @@ defineCurve('ed25519', {
   // -121665 * (121666^(-1)) (mod P)
   d: '52036cee2b6ffe73 8cc740797779e898 00700a4d4141d8ab 75eb4dca135978a3',
   n: '1000000000000000 0000000000000000 14def9dea2f79cd6 5812631a5cf5d3ed',
-  hash: hash.sha256,
+  hash: sha256,
   gRed: false,
   g: [
     '216936d3cd6e53fec0a4e231fdd6dc5c692cc7609525a7b2c9562d608f25d51a',
@@ -2901,7 +2930,7 @@ defineCurve('secp256k1', {
   b: '7',
   n: 'ffffffff ffffffff ffffffff fffffffe baaedce6 af48a03b bfd25e8c d0364141',
   h: '1',
-  hash: hash.sha256,
+  hash: sha256,
 
   // Precomputed endomorphism
   beta: '7ae96a2b657c07106e64479eac3434e99cf0497512f58995c1396c28719501ee',
