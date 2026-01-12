@@ -7,7 +7,10 @@ const typeforce = require('typeforce');
 const createHmac = require('create-hmac');
 let BN = require('bn.js')
 var HmacDRBG = require('hmac-drbg');
-var minAssert = require('minimalistic-assert');
+var minAssert = function assert(val, msg) {
+  if (!val)
+    throw new Error(msg || 'Assertion failed');
+}
 
 function getNAF(num, w, bits) {
   var naf = new Array(Math.max(num.bitLength(), bits) + 1);
