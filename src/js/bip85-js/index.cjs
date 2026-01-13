@@ -2,158 +2,264 @@
 var RIPEMD160 = require('ripemd160')
 const sha256 = require('./node_modules/sha.js/sha256')
 
-function fMD5(){
-var HashBase = require('hash-base')
+function fHashBase() {
+  function HashBase(blockSize) {
+    Transform.call(this);
 
-var ARRAY16 = new Array(16)
+    this._block = Buffer.allocUnsafe(blockSize);
+    this._blockSize = blockSize;
+    this._blockOffset = 0;
+    this._length = [0, 0, 0, 0];
 
-function MD5 () {
-  HashBase.call(this, 64)
-
-  // state
-  this._a = 0x67452301
-  this._b = 0xefcdab89
-  this._c = 0x98badcfe
-  this._d = 0x10325476
-}
-
-inherits(MD5, HashBase)
-
-MD5.prototype._update = function () {
-  var M = ARRAY16
-  for (var i = 0; i < 16; ++i) M[i] = this._block.readInt32LE(i * 4)
-
-  var a = this._a
-  var b = this._b
-  var c = this._c
-  var d = this._d
-
-  a = fnF(a, b, c, d, M[0], 0xd76aa478, 7)
-  d = fnF(d, a, b, c, M[1], 0xe8c7b756, 12)
-  c = fnF(c, d, a, b, M[2], 0x242070db, 17)
-  b = fnF(b, c, d, a, M[3], 0xc1bdceee, 22)
-  a = fnF(a, b, c, d, M[4], 0xf57c0faf, 7)
-  d = fnF(d, a, b, c, M[5], 0x4787c62a, 12)
-  c = fnF(c, d, a, b, M[6], 0xa8304613, 17)
-  b = fnF(b, c, d, a, M[7], 0xfd469501, 22)
-  a = fnF(a, b, c, d, M[8], 0x698098d8, 7)
-  d = fnF(d, a, b, c, M[9], 0x8b44f7af, 12)
-  c = fnF(c, d, a, b, M[10], 0xffff5bb1, 17)
-  b = fnF(b, c, d, a, M[11], 0x895cd7be, 22)
-  a = fnF(a, b, c, d, M[12], 0x6b901122, 7)
-  d = fnF(d, a, b, c, M[13], 0xfd987193, 12)
-  c = fnF(c, d, a, b, M[14], 0xa679438e, 17)
-  b = fnF(b, c, d, a, M[15], 0x49b40821, 22)
-
-  a = fnG(a, b, c, d, M[1], 0xf61e2562, 5)
-  d = fnG(d, a, b, c, M[6], 0xc040b340, 9)
-  c = fnG(c, d, a, b, M[11], 0x265e5a51, 14)
-  b = fnG(b, c, d, a, M[0], 0xe9b6c7aa, 20)
-  a = fnG(a, b, c, d, M[5], 0xd62f105d, 5)
-  d = fnG(d, a, b, c, M[10], 0x02441453, 9)
-  c = fnG(c, d, a, b, M[15], 0xd8a1e681, 14)
-  b = fnG(b, c, d, a, M[4], 0xe7d3fbc8, 20)
-  a = fnG(a, b, c, d, M[9], 0x21e1cde6, 5)
-  d = fnG(d, a, b, c, M[14], 0xc33707d6, 9)
-  c = fnG(c, d, a, b, M[3], 0xf4d50d87, 14)
-  b = fnG(b, c, d, a, M[8], 0x455a14ed, 20)
-  a = fnG(a, b, c, d, M[13], 0xa9e3e905, 5)
-  d = fnG(d, a, b, c, M[2], 0xfcefa3f8, 9)
-  c = fnG(c, d, a, b, M[7], 0x676f02d9, 14)
-  b = fnG(b, c, d, a, M[12], 0x8d2a4c8a, 20)
-
-  a = fnH(a, b, c, d, M[5], 0xfffa3942, 4)
-  d = fnH(d, a, b, c, M[8], 0x8771f681, 11)
-  c = fnH(c, d, a, b, M[11], 0x6d9d6122, 16)
-  b = fnH(b, c, d, a, M[14], 0xfde5380c, 23)
-  a = fnH(a, b, c, d, M[1], 0xa4beea44, 4)
-  d = fnH(d, a, b, c, M[4], 0x4bdecfa9, 11)
-  c = fnH(c, d, a, b, M[7], 0xf6bb4b60, 16)
-  b = fnH(b, c, d, a, M[10], 0xbebfbc70, 23)
-  a = fnH(a, b, c, d, M[13], 0x289b7ec6, 4)
-  d = fnH(d, a, b, c, M[0], 0xeaa127fa, 11)
-  c = fnH(c, d, a, b, M[3], 0xd4ef3085, 16)
-  b = fnH(b, c, d, a, M[6], 0x04881d05, 23)
-  a = fnH(a, b, c, d, M[9], 0xd9d4d039, 4)
-  d = fnH(d, a, b, c, M[12], 0xe6db99e5, 11)
-  c = fnH(c, d, a, b, M[15], 0x1fa27cf8, 16)
-  b = fnH(b, c, d, a, M[2], 0xc4ac5665, 23)
-
-  a = fnI(a, b, c, d, M[0], 0xf4292244, 6)
-  d = fnI(d, a, b, c, M[7], 0x432aff97, 10)
-  c = fnI(c, d, a, b, M[14], 0xab9423a7, 15)
-  b = fnI(b, c, d, a, M[5], 0xfc93a039, 21)
-  a = fnI(a, b, c, d, M[12], 0x655b59c3, 6)
-  d = fnI(d, a, b, c, M[3], 0x8f0ccc92, 10)
-  c = fnI(c, d, a, b, M[10], 0xffeff47d, 15)
-  b = fnI(b, c, d, a, M[1], 0x85845dd1, 21)
-  a = fnI(a, b, c, d, M[8], 0x6fa87e4f, 6)
-  d = fnI(d, a, b, c, M[15], 0xfe2ce6e0, 10)
-  c = fnI(c, d, a, b, M[6], 0xa3014314, 15)
-  b = fnI(b, c, d, a, M[13], 0x4e0811a1, 21)
-  a = fnI(a, b, c, d, M[4], 0xf7537e82, 6)
-  d = fnI(d, a, b, c, M[11], 0xbd3af235, 10)
-  c = fnI(c, d, a, b, M[2], 0x2ad7d2bb, 15)
-  b = fnI(b, c, d, a, M[9], 0xeb86d391, 21)
-
-  this._a = (this._a + a) | 0
-  this._b = (this._b + b) | 0
-  this._c = (this._c + c) | 0
-  this._d = (this._d + d) | 0
-}
-
-MD5.prototype._digest = function () {
-  // create padding and handle blocks
-  this._block[this._blockOffset++] = 0x80
-  if (this._blockOffset > 56) {
-    this._block.fill(0, this._blockOffset, 64)
-    this._update()
-    this._blockOffset = 0
+    this._finalized = false;
   }
 
-  this._block.fill(0, this._blockOffset, 56)
-  this._block.writeUInt32LE(this._length[0], 56)
-  this._block.writeUInt32LE(this._length[1], 60)
-  this._update()
+  inherits(HashBase, Transform);
 
-  // produce result
-  var buffer = Buffer.allocUnsafe(16)
-  buffer.writeInt32LE(this._a, 0)
-  buffer.writeInt32LE(this._b, 4)
-  buffer.writeInt32LE(this._c, 8)
-  buffer.writeInt32LE(this._d, 12)
-  return buffer
+  HashBase.prototype._transform = function(chunk, encoding, callback) {
+    var error = null;
+    try {
+      this.update(chunk, encoding);
+    } catch (err) {
+      error = err;
+    }
+
+    callback(error);
+  };
+
+  HashBase.prototype._flush = function(callback) {
+    var error = null;
+    try {
+      this.push(this.digest());
+    } catch (err) {
+      error = err;
+    }
+
+    callback(error);
+  };
+
+  HashBase.prototype.update = function(data, encoding) {
+    if (this._finalized) {
+      throw new Error('Digest already called');
+    }
+
+    var dataBuffer = toBuffer(data, encoding); // asserts correct input type
+
+    // consume data
+    var block = this._block;
+    var offset = 0;
+    while (this._blockOffset + dataBuffer.length - offset >= this._blockSize) {
+      for (var i = this._blockOffset; i < this._blockSize;) {
+        block[i] = dataBuffer[offset];
+        i += 1;
+        offset += 1;
+      }
+      this._update();
+      this._blockOffset = 0;
+    }
+    while (offset < dataBuffer.length) {
+      block[this._blockOffset] = dataBuffer[offset];
+      this._blockOffset += 1;
+      offset += 1;
+    }
+
+    // update length
+    for (var j = 0, carry = dataBuffer.length * 8; carry > 0; ++j) {
+      this._length[j] += carry;
+      carry = (this._length[j] / 0x0100000000) | 0;
+      if (carry > 0) {
+        this._length[j] -= 0x0100000000 * carry;
+      }
+    }
+
+    return this;
+  };
+
+  HashBase.prototype._update = function() {
+    throw new Error('_update is not implemented');
+  };
+
+  HashBase.prototype.digest = function(encoding) {
+    if (this._finalized) {
+      throw new Error('Digest already called');
+    }
+    this._finalized = true;
+
+    var digest = this._digest();
+    if (encoding !== undefined) {
+      digest = digest.toString(encoding);
+    }
+
+    // reset state
+    this._block.fill(0);
+    this._blockOffset = 0;
+    for (var i = 0; i < 4; ++i) {
+      this._length[i] = 0;
+    }
+
+    return digest;
+  };
+
+  HashBase.prototype._digest = function() {
+    throw new Error('_digest is not implemented');
+  };
+
+  return HashBase;
 }
 
-function rotl (x, n) {
-  return (x << n) | (x >>> (32 - n))
-}
+var HashBase = fHashBase()
 
-function fnF (a, b, c, d, m, k, s) {
-  return (rotl((a + ((b & c) | ((~b) & d)) + m + k) | 0, s) + b) | 0
-}
+function fMD5() {
 
-function fnG (a, b, c, d, m, k, s) {
-  return (rotl((a + ((b & d) | (c & (~d))) + m + k) | 0, s) + b) | 0
-}
+  var ARRAY16 = new Array(16)
 
-function fnH (a, b, c, d, m, k, s) {
-  return (rotl((a + (b ^ c ^ d) + m + k) | 0, s) + b) | 0
-}
+  function MD5() {
+    HashBase.call(this, 64)
 
-function fnI (a, b, c, d, m, k, s) {
-  return (rotl((a + ((c ^ (b | (~d)))) + m + k) | 0, s) + b) | 0
-}
+    // state
+    this._a = 0x67452301
+    this._b = 0xefcdab89
+    this._c = 0x98badcfe
+    this._d = 0x10325476
+  }
 
-module.exports = MD5
+  inherits(MD5, HashBase)
+
+  MD5.prototype._update = function() {
+    var M = ARRAY16
+    for (var i = 0; i < 16; ++i) M[i] = this._block.readInt32LE(i * 4)
+
+    var a = this._a
+    var b = this._b
+    var c = this._c
+    var d = this._d
+
+    a = fnF(a, b, c, d, M[0], 0xd76aa478, 7)
+    d = fnF(d, a, b, c, M[1], 0xe8c7b756, 12)
+    c = fnF(c, d, a, b, M[2], 0x242070db, 17)
+    b = fnF(b, c, d, a, M[3], 0xc1bdceee, 22)
+    a = fnF(a, b, c, d, M[4], 0xf57c0faf, 7)
+    d = fnF(d, a, b, c, M[5], 0x4787c62a, 12)
+    c = fnF(c, d, a, b, M[6], 0xa8304613, 17)
+    b = fnF(b, c, d, a, M[7], 0xfd469501, 22)
+    a = fnF(a, b, c, d, M[8], 0x698098d8, 7)
+    d = fnF(d, a, b, c, M[9], 0x8b44f7af, 12)
+    c = fnF(c, d, a, b, M[10], 0xffff5bb1, 17)
+    b = fnF(b, c, d, a, M[11], 0x895cd7be, 22)
+    a = fnF(a, b, c, d, M[12], 0x6b901122, 7)
+    d = fnF(d, a, b, c, M[13], 0xfd987193, 12)
+    c = fnF(c, d, a, b, M[14], 0xa679438e, 17)
+    b = fnF(b, c, d, a, M[15], 0x49b40821, 22)
+
+    a = fnG(a, b, c, d, M[1], 0xf61e2562, 5)
+    d = fnG(d, a, b, c, M[6], 0xc040b340, 9)
+    c = fnG(c, d, a, b, M[11], 0x265e5a51, 14)
+    b = fnG(b, c, d, a, M[0], 0xe9b6c7aa, 20)
+    a = fnG(a, b, c, d, M[5], 0xd62f105d, 5)
+    d = fnG(d, a, b, c, M[10], 0x02441453, 9)
+    c = fnG(c, d, a, b, M[15], 0xd8a1e681, 14)
+    b = fnG(b, c, d, a, M[4], 0xe7d3fbc8, 20)
+    a = fnG(a, b, c, d, M[9], 0x21e1cde6, 5)
+    d = fnG(d, a, b, c, M[14], 0xc33707d6, 9)
+    c = fnG(c, d, a, b, M[3], 0xf4d50d87, 14)
+    b = fnG(b, c, d, a, M[8], 0x455a14ed, 20)
+    a = fnG(a, b, c, d, M[13], 0xa9e3e905, 5)
+    d = fnG(d, a, b, c, M[2], 0xfcefa3f8, 9)
+    c = fnG(c, d, a, b, M[7], 0x676f02d9, 14)
+    b = fnG(b, c, d, a, M[12], 0x8d2a4c8a, 20)
+
+    a = fnH(a, b, c, d, M[5], 0xfffa3942, 4)
+    d = fnH(d, a, b, c, M[8], 0x8771f681, 11)
+    c = fnH(c, d, a, b, M[11], 0x6d9d6122, 16)
+    b = fnH(b, c, d, a, M[14], 0xfde5380c, 23)
+    a = fnH(a, b, c, d, M[1], 0xa4beea44, 4)
+    d = fnH(d, a, b, c, M[4], 0x4bdecfa9, 11)
+    c = fnH(c, d, a, b, M[7], 0xf6bb4b60, 16)
+    b = fnH(b, c, d, a, M[10], 0xbebfbc70, 23)
+    a = fnH(a, b, c, d, M[13], 0x289b7ec6, 4)
+    d = fnH(d, a, b, c, M[0], 0xeaa127fa, 11)
+    c = fnH(c, d, a, b, M[3], 0xd4ef3085, 16)
+    b = fnH(b, c, d, a, M[6], 0x04881d05, 23)
+    a = fnH(a, b, c, d, M[9], 0xd9d4d039, 4)
+    d = fnH(d, a, b, c, M[12], 0xe6db99e5, 11)
+    c = fnH(c, d, a, b, M[15], 0x1fa27cf8, 16)
+    b = fnH(b, c, d, a, M[2], 0xc4ac5665, 23)
+
+    a = fnI(a, b, c, d, M[0], 0xf4292244, 6)
+    d = fnI(d, a, b, c, M[7], 0x432aff97, 10)
+    c = fnI(c, d, a, b, M[14], 0xab9423a7, 15)
+    b = fnI(b, c, d, a, M[5], 0xfc93a039, 21)
+    a = fnI(a, b, c, d, M[12], 0x655b59c3, 6)
+    d = fnI(d, a, b, c, M[3], 0x8f0ccc92, 10)
+    c = fnI(c, d, a, b, M[10], 0xffeff47d, 15)
+    b = fnI(b, c, d, a, M[1], 0x85845dd1, 21)
+    a = fnI(a, b, c, d, M[8], 0x6fa87e4f, 6)
+    d = fnI(d, a, b, c, M[15], 0xfe2ce6e0, 10)
+    c = fnI(c, d, a, b, M[6], 0xa3014314, 15)
+    b = fnI(b, c, d, a, M[13], 0x4e0811a1, 21)
+    a = fnI(a, b, c, d, M[4], 0xf7537e82, 6)
+    d = fnI(d, a, b, c, M[11], 0xbd3af235, 10)
+    c = fnI(c, d, a, b, M[2], 0x2ad7d2bb, 15)
+    b = fnI(b, c, d, a, M[9], 0xeb86d391, 21)
+
+    this._a = (this._a + a) | 0
+    this._b = (this._b + b) | 0
+    this._c = (this._c + c) | 0
+    this._d = (this._d + d) | 0
+  }
+
+  MD5.prototype._digest = function() {
+    // create padding and handle blocks
+    this._block[this._blockOffset++] = 0x80
+    if (this._blockOffset > 56) {
+      this._block.fill(0, this._blockOffset, 64)
+      this._update()
+      this._blockOffset = 0
+    }
+
+    this._block.fill(0, this._blockOffset, 56)
+    this._block.writeUInt32LE(this._length[0], 56)
+    this._block.writeUInt32LE(this._length[1], 60)
+    this._update()
+
+    // produce result
+    var buffer = Buffer.allocUnsafe(16)
+    buffer.writeInt32LE(this._a, 0)
+    buffer.writeInt32LE(this._b, 4)
+    buffer.writeInt32LE(this._c, 8)
+    buffer.writeInt32LE(this._d, 12)
+    return buffer
+  }
+
+  function rotl(x, n) {
+    return (x << n) | (x >>> (32 - n))
+  }
+
+  function fnF(a, b, c, d, m, k, s) {
+    return (rotl((a + ((b & c) | ((~b) & d)) + m + k) | 0, s) + b) | 0
+  }
+
+  function fnG(a, b, c, d, m, k, s) {
+    return (rotl((a + ((b & d) | (c & (~d))) + m + k) | 0, s) + b) | 0
+  }
+
+  function fnH(a, b, c, d, m, k, s) {
+    return (rotl((a + (b ^ c ^ d) + m + k) | 0, s) + b) | 0
+  }
+
+  function fnI(a, b, c, d, m, k, s) {
+    return (rotl((a + ((c ^ (b | (~d)))) + m + k) | 0, s) + b) | 0
+  }
+
+  module.exports = MD5
 }
 
 var MD5 = fMD5()
 
-var isEncoding = Buffer.isEncoding || function (encoding) {
+var isEncoding = Buffer.isEncoding || function(encoding) {
   encoding = '' + encoding;
   switch (encoding && encoding.toLowerCase()) {
-    case 'hex':case 'utf8':case 'utf-8':case 'ascii':case 'binary':case 'base64':case 'ucs2':case 'ucs-2':case 'utf16le':case 'utf-16le':case 'raw':
+    case 'hex': case 'utf8': case 'utf-8': case 'ascii': case 'binary': case 'base64': case 'ucs2': case 'ucs-2': case 'utf16le': case 'utf-16le': case 'raw':
       return true;
     default:
       return false;
@@ -228,7 +334,7 @@ function StringDecoder(encoding) {
   this.lastChar = Buffer.allocUnsafe(nb);
 }
 
-StringDecoder.prototype.write = function (buf) {
+StringDecoder.prototype.write = function(buf) {
   if (buf.length === 0) return '';
   var r;
   var i;
@@ -250,7 +356,7 @@ StringDecoder.prototype.end = utf8End;
 StringDecoder.prototype.text = utf8Text;
 
 // Attempts to complete a partial non-UTF-8 character using bytes from a Buffer
-StringDecoder.prototype.fillLast = function (buf) {
+StringDecoder.prototype.fillLast = function(buf) {
   if (this.lastNeed <= buf.length) {
     buf.copy(this.lastChar, this.lastTotal - this.lastNeed, 0, this.lastNeed);
     return this.lastChar.toString(this.encoding, 0, this.lastTotal);
@@ -262,7 +368,7 @@ StringDecoder.prototype.fillLast = function (buf) {
 // Checks the type of a UTF-8 byte, whether it's ASCII, a leading byte, or a
 // continuation byte. If an invalid byte is detected, -2 is returned.
 function utf8CheckByte(byte) {
-  if (byte <= 0x7F) return 0;else if (byte >> 5 === 0x06) return 2;else if (byte >> 4 === 0x0E) return 3;else if (byte >> 3 === 0x1E) return 4;
+  if (byte <= 0x7F) return 0; else if (byte >> 5 === 0x06) return 2; else if (byte >> 4 === 0x0E) return 3; else if (byte >> 3 === 0x1E) return 4;
   return byte >> 6 === 0x02 ? -1 : -2;
 }
 
@@ -287,7 +393,7 @@ function utf8CheckIncomplete(self, buf, i) {
   nb = utf8CheckByte(buf[j]);
   if (nb >= 0) {
     if (nb > 0) {
-      if (nb === 2) nb = 0;else self.lastNeed = nb - 3;
+      if (nb === 2) nb = 0; else self.lastNeed = nb - 3;
     }
     return nb;
   }
@@ -420,93 +526,93 @@ function simpleEnd(buf) {
 }
 
 function toBuffer(data, encoding) {
-	if (Buffer.isBuffer(data)) {
-		if (data.constructor && !('isBuffer' in data)) {
-			// probably a SlowBuffer
-			return Buffer.from(data);
-		}
-		return data;
-	}
+  if (Buffer.isBuffer(data)) {
+    if (data.constructor && !('isBuffer' in data)) {
+      // probably a SlowBuffer
+      return Buffer.from(data);
+    }
+    return data;
+  }
 
-	if (typeof data === 'string') {
-		return Buffer.from(data, encoding);
-	}
+  if (typeof data === 'string') {
+    return Buffer.from(data, encoding);
+  }
 
 	/*
 	 * Wrap any TypedArray instances and DataViews
 	 * Makes sense only on engines with full TypedArray support -- let Buffer detect that
 	 */
-	if (useArrayBuffer && isView(data)) {
-		// Bug in Node.js <6.3.1, which treats this as out-of-bounds
-		if (data.byteLength === 0) {
-			return Buffer.alloc(0);
-		}
+  if (useArrayBuffer && isView(data)) {
+    // Bug in Node.js <6.3.1, which treats this as out-of-bounds
+    if (data.byteLength === 0) {
+      return Buffer.alloc(0);
+    }
 
-		// When Buffer is based on Uint8Array, we can just construct it from ArrayBuffer
-		if (useFromArrayBuffer) {
-			var res = Buffer.from(data.buffer, data.byteOffset, data.byteLength);
+    // When Buffer is based on Uint8Array, we can just construct it from ArrayBuffer
+    if (useFromArrayBuffer) {
+      var res = Buffer.from(data.buffer, data.byteOffset, data.byteLength);
 			/*
 			 * Recheck result size, as offset/length doesn't work on Node.js <5.10
 			 * We just go to Uint8Array case if this fails
 			 */
-			if (res.byteLength === data.byteLength) {
-				return res;
-			}
-		}
+      if (res.byteLength === data.byteLength) {
+        return res;
+      }
+    }
 
-		// Convert to Uint8Array bytes and then to Buffer
-		var uint8 = data instanceof Uint8Array ? data : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-		var result = Buffer.from(uint8);
+    // Convert to Uint8Array bytes and then to Buffer
+    var uint8 = data instanceof Uint8Array ? data : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+    var result = Buffer.from(uint8);
 
 		/*
 		 * Let's recheck that conversion succeeded
 		 * We have .length but not .byteLength when useFromArrayBuffer is false
 		 */
-		if (result.length === data.byteLength) {
-			return result;
-		}
-	}
+    if (result.length === data.byteLength) {
+      return result;
+    }
+  }
 
 	/*
 	 * Uint8Array in engines where Buffer.from might not work with ArrayBuffer, just copy over
 	 * Doesn't make sense with other TypedArray instances
 	 */
-	if (useUint8Array && data instanceof Uint8Array) {
-		return Buffer.from(data);
-	}
+  if (useUint8Array && data instanceof Uint8Array) {
+    return Buffer.from(data);
+  }
 
-	var isArr = isArray(data);
-	if (isArr) {
-		for (var i = 0; i < data.length; i += 1) {
-			var x = data[i];
-			if (
-				typeof x !== 'number'
-				|| x < 0
-				|| x > 255
-				|| ~~x !== x // NaN and integer check
-			) {
-				throw new RangeError('Array items must be numbers in the range 0-255.');
-			}
-		}
-	}
+  var isArr = isArray(data);
+  if (isArr) {
+    for (var i = 0; i < data.length; i += 1) {
+      var x = data[i];
+      if (
+        typeof x !== 'number'
+        || x < 0
+        || x > 255
+        || ~~x !== x // NaN and integer check
+      ) {
+        throw new RangeError('Array items must be numbers in the range 0-255.');
+      }
+    }
+  }
 
 	/*
 	 * Old Buffer polyfill on an engine that doesn't have TypedArray support
 	 * Also, this is from a different Buffer polyfill implementation then we have, as instanceof check failed
 	 * Convert to our current Buffer implementation
 	 */
-	if (
-		isArr || (
-			Buffer.isBuffer(data)
-			&& data.constructor
-			&& typeof data.constructor.isBuffer === 'function'
-			&& data.constructor.isBuffer(data)
-		)
-	) {
-		return Buffer.from(data);
-	}
+  if (
+    isArr || (
+      Buffer.isBuffer(data)
+      && data.constructor
+      && typeof data.constructor.isBuffer === 'function'
+      && data.constructor.isBuffer(data)
+    )
+  ) {
+    return Buffer.from(data);
+  }
 
-	throw new TypeError('The "data" argument must be a string, an Array, a Buffer, a Uint8Array, or a DataView.');
+  throw new TypeError('The "data" argument must be a string, an Array, a Buffer, a Uint8Array, or a DataView.');
 }
 
 // --- START OF COMPATIBLE POLYFILL ---
@@ -529,8 +635,8 @@ EventEmitter.prototype.emit = function(type, ...args) {
 // 2. Transform Polyfill (Function Style)
 function Transform(options) {
   // This allows the legacy code to run Transform.call(this) successfully
-  EventEmitter.call(this); 
-  
+  EventEmitter.call(this);
+
   this._readableState = { objectMode: false, ended: false, destroyed: false };
   this._writableState = { objectMode: false, ended: false, destroyed: false };
 }
@@ -547,7 +653,7 @@ Transform.prototype.push = function(chunk) {
 Transform.prototype.write = function(chunk, encoding, cb) {
   // Handle optional arguments
   if (typeof encoding === 'function') { cb = encoding; encoding = 'utf8'; }
-  
+
   // Mock the internal _transform call
   if (this._transform) {
     this._transform(chunk, encoding || 'utf8', (err, data) => {
