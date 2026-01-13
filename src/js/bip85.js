@@ -1,4 +1,76 @@
-"use strict";
+if (window.buffer) {
+  window.Buffer = window.buffer.Buffer;
+}
+var Buffer = window.Buffer
+
+// alternative to using Object.keys for old browsers
+function copyProps (src, dst) {
+  for (var key in src) {
+    dst[key] = src[key]
+  }
+}
+
+function SafeBuffer (arg, encodingOrOffset, length) {
+  return Buffer(arg, encodingOrOffset, length)
+}
+
+SafeBuffer.prototype = Object.create(Buffer.prototype)
+
+// Copy static methods from Buffer
+copyProps(Buffer, SafeBuffer)
+
+SafeBuffer.from = function (arg, encodingOrOffset, length) {
+  if (typeof arg === 'number') {
+    throw new TypeError('Argument must not be a number')
+  }
+  return Buffer(arg, encodingOrOffset, length)
+}
+
+SafeBuffer.alloc = function (size, fill, encoding) {
+  if (typeof size !== 'number') {
+    throw new TypeError('Argument must be a number')
+  }
+  var buf = Buffer(size)
+  if (fill !== undefined) {
+    if (typeof encoding === 'string') {
+      buf.fill(fill, encoding)
+    } else {
+      buf.fill(fill)
+    }
+  } else {
+    buf.fill(0)
+  }
+  return buf
+}
+
+SafeBuffer.allocUnsafe = function (size) {
+  if (typeof size !== 'number') {
+    throw new TypeError('Argument must be a number')
+  }
+  return Buffer(size)
+}
+
+SafeBuffer.allocUnsafeSlow = function (size) {
+  if (typeof size !== 'number') {
+    throw new TypeError('Argument must be a number')
+  }
+  return buffer.SlowBuffer(size)
+}
+
+function inherits(ctor, superCtor) {
+  if (superCtor) {
+    ctor.super_ = superCtor
+    ctor.prototype = Object.create(superCtor.prototype, {
+      constructor: {
+        value: ctor,
+        enumerable: false,
+        writable: true,
+        configurable: true
+      }
+    })
+  }
+};
+
 function fHashBase() {
   function HashBase(blockSize) {
     Transform.call(this);
@@ -599,7 +671,6 @@ function fMD5() {
     return (rotl((a + ((c ^ (b | (~d)))) + m + k) | 0, s) + b) | 0
   }
 
-  module.exports = MD5
 }
 
 var MD5 = fMD5()
@@ -643,7 +714,6 @@ function _normalizeEncoding(enc) {
 };
 
 // Do not cache `Buffer.isEncoding` when checking encoding names as some
-// modules monkey-patch it to support additional encodings
 function normalizeEncoding(enc) {
   var nenc = _normalizeEncoding(enc);
   if (typeof nenc !== 'string' && (Buffer.isEncoding === isEncoding || !isEncoding(enc))) throw new Error('Unknown encoding: ' + enc);
@@ -653,7 +723,6 @@ function normalizeEncoding(enc) {
 // StringDecoder provides an interface for efficiently splitting a series of
 // buffers into a series of JS strings without breaking apart multi-byte
 // characters.
-exports.StringDecoder = StringDecoder;
 function StringDecoder(encoding) {
   this.encoding = normalizeEncoding(encoding);
   var nb;
@@ -2320,17 +2389,6 @@ function assert(val, msg) {
   if (!val) throw new Error(msg || 'Assertion failed');
 }
 
-// Could use `inherits` module, but don't want to move from single file
-// architecture yet.
-function inherits(ctor, superCtor) {
-  ctor.super_ = superCtor;
-  var TempCtor = function() { };
-  TempCtor.prototype = superCtor.prototype;
-  ctor.prototype = new TempCtor();
-  ctor.prototype.constructor = ctor;
-}
-
-// BN
 
 function BN(number, base, endian) {
   if (BN.isBN(number)) {
@@ -2352,11 +2410,6 @@ function BN(number, base, endian) {
 
     this._init(number || 0, base || 10, endian || 'be');
   }
-}
-if (typeof module === 'object') {
-  module.exports = BN;
-} else {
-  exports.BN = BN;
 }
 
 BN.BN = BN;
@@ -6032,7 +6085,6 @@ function SHA384() {
     0x47b5481d, 0xbefa4fa4];
 }
 inherits(SHA384, SHA512);
-module.exports = SHA384;
 
 SHA384.blockSize = 1024;
 SHA384.outSize = 384;
@@ -6046,7 +6098,7 @@ SHA384.prototype._digest = function digest(enc) {
     return utilsHashSplit32(this.h.slice(0, 12), 'big');
 };
 
-var curve = exports;
+var curve = {} 
 function BaseCurve(type, conf) {
   this.type = type;
   this.p = new BN(conf.p, 16);
@@ -6421,19 +6473,7 @@ BasePoint.prototype.dblp = function dblp(k) {
   return r;
 };
 
-function inherits(ctor, superCtor) {
-  if (superCtor) {
-    ctor.super_ = superCtor
-    ctor.prototype = Object.create(superCtor.prototype, {
-      constructor: {
-        value: ctor,
-        enumerable: false,
-        writable: true,
-        configurable: true
-      }
-    })
-  }
-};
+
 
 function theShort() {
   let Base = curve.base;
@@ -7649,37 +7689,7 @@ EdwardsCurve.prototype.validate = function validate(point) {
   return lhs.cmp(rhs) === 0;
 };
 
-function Point(curve, x, y, z, t) {
-  Base2.BasePoint.call(this, curve, 'projective');
-  if (x === null && y === null && z === null) {
-    this.x = this.curve.zero;
-    this.y = this.curve.one;
-    this.z = this.curve.one;
-    this.t = this.curve.zero;
-    this.zOne = true;
-  } else {
-    this.x = new BN(x, 16);
-    this.y = new BN(y, 16);
-    this.z = z ? new BN(z, 16) : this.curve.one;
-    this.t = t && new BN(t, 16);
-    if (!this.x.red)
-      this.x = this.x.toRed(this.curve.red);
-    if (!this.y.red)
-      this.y = this.y.toRed(this.curve.red);
-    if (!this.z.red)
-      this.z = this.z.toRed(this.curve.red);
-    if (this.t && !this.t.red)
-      this.t = this.t.toRed(this.curve.red);
-    this.zOne = this.z === this.curve.one;
 
-    // Use extended coordinates
-    if (this.curve.extended && !this.t) {
-      this.t = this.x.redMul(this.y);
-      if (!this.zOne)
-        this.t = this.t.redMul(this.z.redInvm());
-    }
-  }
-}
 inherits(Point, Base.BasePoint);
 
 EdwardsCurve.prototype.pointFromJSON = function pointFromJSON(obj) {
@@ -7972,7 +7982,7 @@ Point.prototype.eqXToP = function eqXToP(x) {
 Point.prototype.toP = Point.prototype.normalize;
 Point.prototype.mixedAdd = Point.prototype.add;
 
-var curves = exports;
+var curves = {};
 
 
 
@@ -9028,7 +9038,6 @@ function KeyPair(ec, options) {
   if (options.pub)
     this._importPublic(options.pub, options.pubEnc);
 }
-module.exports = KeyPair;
 
 KeyPair.fromPublic = function fromPublic(ec, pub, enc) {
   if (pub instanceof KeyPair)
@@ -9148,7 +9157,6 @@ function Signature(options, enc) {
   else
     this.recoveryParam = options.recoveryParam;
 }
-module.exports = Signature;
 
 function Position() {
   this.place = 0;
@@ -9332,7 +9340,6 @@ function EC(options) {
   // Hash for function for DRBG
   this.hash = options.hash || options.curve.hash;
 }
-module.exports = EC;
 
 EC.prototype.keyPair = function keyPair(options) {
   return new KeyPair(this, options);
@@ -10187,24 +10194,11 @@ function bip32FromSeed(seed, network) {
 }
 
 var __defProp = Object.defineProperty;
-var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-var __getOwnPropNames = Object.getOwnPropertyNames;
-var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
-var __copyProps = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") {
-    for (let key of __getOwnPropNames(from))
-      if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
-  }
-  return to;
-};
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// node_modules/@noble/hashes/src/sha2.ts
 var sha2_exports = {};
 __export(sha2_exports, {
   SHA224: () => SHA224,
@@ -10220,7 +10214,6 @@ __export(sha2_exports, {
   sha512_224: () => sha512_224,
   sha512_256: () => sha512_256
 });
-module.exports = __toCommonJS(sha2_exports);
 
 
 
@@ -10985,17 +10978,3 @@ const extras = {
   entropyToCrippleSeed: entropyToCrippleSeed,
   bip32ToCrippleSeed: bip32ToCrippleSeed,
 };
-
-module.exports = {
-  bip32XPRVToEntropy: bip32XPRVToEntropy,
-  bip39MnemonicToEntropy: bip39MnemonicToEntropy,
-  entropyToBIP39: entropyToBIP39,
-  entropyToWif: entropyToWif,
-  entropyFromWif: entropyFromWif,
-  bip32XPRVToXPRV: bip32XPRVToXPRV,
-  bip32XPRVToHex: bip32XPRVToHex,
-  app: app,
-  extras: extras,
-};
-
-
